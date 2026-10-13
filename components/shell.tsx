@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useId, useState, type ReactNode } from "react";
+import { useId, useState, useSyncExternalStore, type ReactNode } from "react";
 import { formatAge, useDashboard } from "./dashboard-provider";
 import { SampleBadge, cx } from "./ui";
 
@@ -26,7 +26,36 @@ const NAV: { label: string; path: string; icon: keyof typeof ICONS; badge?: bool
   { label: "Onboarding", path: "/onboarding", icon: "onboarding" },
 ];
 
-function Logo() {
+const COLLAPSE_KEY = "mm-sidebar-collapsed";
+let collapsedMemory = false;
+const collapseListeners = new Set<() => void>();
+
+function subscribeCollapsed(cb: () => void) {
+  collapseListeners.add(cb);
+  window.addEventListener("storage", cb);
+  return () => {
+    collapseListeners.delete(cb);
+    window.removeEventListener("storage", cb);
+  };
+}
+function readCollapsed(): boolean {
+  try {
+    return localStorage.getItem(COLLAPSE_KEY) === "1";
+  } catch {
+    return collapsedMemory;
+  }
+}
+function writeCollapsed(v: boolean) {
+  collapsedMemory = v;
+  try {
+    localStorage.setItem(COLLAPSE_KEY, v ? "1" : "0");
+  } catch {
+    /* storage blocked: keep it in memory for this visit */
+  }
+  collapseListeners.forEach((l) => l());
+}
+
+function Logo({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex items-center gap-2.5">
       <span
@@ -35,10 +64,13 @@ function Logo() {
       >
         MM
       </span>
-      <div>
-        <div className="text-[15px] font-bold leading-tight text-white">Med Match</div>
-        <div className="text-xs leading-tight text-sidebar-muted">Client dashboards</div>
-      </div>
+      {!compact && (
+        <div>
+          <div className="text-[15px] font-bold leading-tight text-white">Med Match</div>
+          <div className="text-xs leading-tight text-sidebar-muted">Client dashboards</div>
+        </div>
+      )}
+      {compact && <span className="sr-only">Med Match client dashboards</span>}
     </div>
   );
 }
@@ -61,6 +93,19 @@ export function SyncStatus({ onDark = false }: { onDark?: boolean }) {
         {bad ? "Connection problem" : "Connected"} · synced {formatAge(sync.ageMin)}
       </span>
     </div>
+  );
+}
+
+function SyncDot() {
+  const { sync } = useDashboard();
+  const bad = sync.error !== null;
+  return (
+    <span className="flex items-center gap-1.5">
+      <span aria-hidden="true" className={cx("inline-block size-3 rounded-full", bad ? "bg-[#f5c26b]" : "bg-mint")} />
+      <span className="sr-only">
+        {bad ? "Connection problem" : "Connected"}, synced {formatAge(sync.ageMin)}
+      </span>
+    </span>
   );
 }
 
@@ -124,13 +169,19 @@ export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const collapsed = useSyncExternalStore(subscribeCollapsed, readCollapsed, () => false);
   const menuId = useId();
   const base = `/${client.id}`;
   const subPath = pathname.startsWith(base) ? pathname.slice(base.length) : "";
   const badge = dash.kpis.expiring30;
 
   return (
-    <div className="min-h-dvh bg-page lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
+    <div
+      className={cx(
+        "min-h-dvh bg-page lg:grid lg:transition-[grid-template-columns] lg:duration-200",
+        collapsed ? "lg:grid-cols-[76px_minmax(0,1fr)]" : "lg:grid-cols-[288px_minmax(0,1fr)]",
+      )}
+    >
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:font-semibold focus:text-ink"
@@ -163,11 +214,23 @@ export function Shell({ children }: { children: ReactNode }) {
           open ? "flex" : "hidden",
         )}
       >
-        <div className="hidden px-1.5 lg:block">
-          <Logo />
+        <div className={cx("hidden items-center lg:flex", collapsed ? "flex-col gap-3" : "justify-between gap-2 px-1.5")}>
+          <Logo compact={collapsed} />
+          <button
+            type="button"
+            onClick={() => writeCollapsed(!collapsed)}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="flex size-9 shrink-0 items-center justify-center rounded-md border border-sidebar-line bg-sidebar-raised text-white hover:bg-sidebar-active"
+          >
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d={collapsed ? "M13 6l6 6-6 6M5 6l6 6-6 6" : "M11 6l-6 6 6 6M19 6l-6 6 6 6"} />
+            </svg>
+          </button>
         </div>
 
-        <div className="px-1.5">
+        <div className={cx("px-1.5", collapsed && "lg:hidden")}>
           <label htmlFor="client-switcher" className="flex flex-col gap-1.5 text-xs text-sidebar-muted">
             Client
             <select
@@ -199,17 +262,24 @@ export function Shell({ children }: { children: ReactNode }) {
                     href={href}
                     aria-current={active ? "page" : undefined}
                     onClick={() => setOpen(false)}
+                    title={collapsed ? item.label : undefined}
                     className={cx(
-                      "flex min-h-11 items-center gap-2.5 rounded-md px-2.5 text-sm no-underline",
+                      "relative flex min-h-11 items-center gap-2.5 rounded-md px-2.5 text-sm no-underline",
+                      collapsed && "lg:justify-center",
                       active ? "bg-sidebar-active font-semibold text-white" : "font-medium text-sidebar-text hover:bg-sidebar-raised hover:text-white",
                     )}
                   >
                     <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
                       <path d={ICONS[item.icon]} />
                     </svg>
-                    <span className="flex-1">{item.label}</span>
+                    <span className={cx("flex-1", collapsed && "lg:sr-only")}>{item.label}</span>
                     {item.badge && badge > 0 && (
-                      <span className="rounded-full bg-red-fg px-[7px] py-px font-mono text-xs text-white">
+                      <span
+                        className={cx(
+                          "rounded-full bg-red-fg px-[7px] py-px font-mono text-xs text-white",
+                          collapsed && "lg:absolute lg:right-0.5 lg:top-0.5 lg:px-1 lg:text-[10px]",
+                        )}
+                      >
                         {badge}
                         <span className="sr-only"> {badge === 1 ? "item" : "items"} expired or expiring within 30 days</span>
                       </span>
@@ -221,7 +291,14 @@ export function Shell({ children }: { children: ReactNode }) {
           </ul>
         </nav>
 
-        <DataSourceCard />
+        <div className={collapsed ? "lg:hidden" : "contents"}>
+          <DataSourceCard />
+        </div>
+        {collapsed && (
+          <div className="mt-auto hidden justify-center lg:flex" title="Data source status">
+            <SyncDot />
+          </div>
+        )}
       </aside>
 
       <div className="flex min-w-0 flex-col">
