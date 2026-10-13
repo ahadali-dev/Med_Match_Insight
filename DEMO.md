@@ -23,7 +23,7 @@ About 10 minutes. Everything runs on invented data in the **Demo data** source, 
 5. **Providers table**: change a status from the dropdown in the row. Open the **⋮** menu: Details, Edit, Delete. Use search, filters and **Export CSV**.
 6. **Licenses & expirations**: sort by time left, edit a date from the row menu.
 7. **Recruiting**: stalled searches (open 60+ days) in red.
-8. **The sheet connection** (Settings or sidebar): "In production each client's tracker is a Google Sheet. The dashboard reads it live every 5 minutes, read-only. Your team keeps working in the sheet they already use."
+8. **The sheet connection** (sidebar → **Connect a Google Sheet**; paste a link shared as "Anyone with the link", click Connect, and the whole dashboard switches to that sheet. Disconnect returns to the demo): "In production each client's tracker is a Google Sheet. The dashboard reads it live every 5 minutes, read-only. Your team keeps working in the sheet they already use."
 
 ## Things to avoid or say honestly
 

@@ -13,7 +13,18 @@ Also included: global provider search (press `/`), provider profile drawer, cred
 
 > All data in the sample sheet is invented. There is no real provider or patient data in this project.
 
-## Connect a new client sheet (under 5 minutes)
+## Quickest way to go live: paste a link (about 1 minute, no setup)
+
+1. In Google Sheets click **Share**, and under **General access** choose **Anyone with the link** (Viewer).
+2. In the dashboard click **Connect a Google Sheet** (sidebar or Settings), paste the link, click **Connect**.
+
+That's it. The dashboard switches to that sheet, read-only, and shows its data. **Disconnect** returns to the demo workspace. No sheet yet? The same dialog has **Download sample workbook (.xlsx)**: upload it to drive.google.com and open it with Google Sheets. It has the right tabs and sample data.
+
+This route reads sheets that anyone with the link can view, so use it for demos and non-sensitive data. The connection is remembered in the visitor's browser. For private client data and a connection every user shares, use the secure setup below.
+
+## Secure setup for production (service account)
+
+**Easiest way: use the built-in admin tools.** Set an `ADMIN_PASSCODE` environment variable (any long passcode) and redeploy. Then open **Settings → Admin tools**, enter the passcode, and follow the four steps: it shows the email to share the sheet with, checks the sheet and explains any problem in plain English (missing tab, wrong column, not shared), and gives you the exact `CLIENTS` line to paste into your environment variables. Nothing is stored by the tool and it can never change the sheet. The manual steps below are the same thing by hand.
 
 You only need to do **1** once per Google Cloud project; after that, every new client is steps 2 to 4.
 

@@ -50,6 +50,12 @@ export function normalizeDate(value: unknown): ISODate | null {
   if (m) return validISO(+m[1], +m[2], +m[3]);
   m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
   if (m) return validISO(+m[3], +m[1], +m[2]);
+  // "Oct 31, 2026", "October 31 2026", "31 Oct 2026" (how Google formats date cells in CSV)
+  const mon = (name: string) => MONTHS.findIndex((x) => x.toLowerCase() === name.slice(0, 3).toLowerCase()) + 1;
+  m = /^([A-Za-z]{3,9})\.? (\d{1,2}),? (\d{4})$/.exec(s);
+  if (m && mon(m[1])) return validISO(+m[3], mon(m[1]), +m[2]);
+  m = /^(\d{1,2}) ([A-Za-z]{3,9})\.?,? (\d{4})$/.exec(s);
+  if (m && mon(m[2])) return validISO(+m[3], mon(m[2]), +m[1]);
   return null;
 }
 

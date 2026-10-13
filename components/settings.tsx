@@ -1,13 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { useActions, useDashboard } from "./dashboard-provider";
 import { EditCell } from "./edit-cells";
 import { PageHeader } from "./page-header";
-import { Card, Chip, cx } from "./ui";
+import { AdminTools } from "./admin-tools";
+import { ConnectSheetDialog } from "./connect-sheet";
+import { Card, cx } from "./ui";
 
 export function SettingsView() {
-  const { data, mode, liveAvailable, liveHint, client } = useDashboard();
+  const { data, mode, liveAvailable, linkedSheet } = useDashboard();
   const actions = useActions();
+  const [connectOpen, setConnectOpen] = useState(false);
   const seg = (active: boolean) =>
     cx("min-h-11 flex-1 rounded-md px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50", active ? "bg-accent text-white" : "text-body hover:bg-white");
 
@@ -47,43 +51,48 @@ export function SettingsView() {
               <button type="button" aria-pressed={mode === "demo"} onClick={() => mode !== "demo" && actions.setSource("demo")} className={seg(mode === "demo")}>
                 Demo data
               </button>
-              <button type="button" aria-pressed={mode === "live"} disabled={!liveAvailable} title={liveAvailable ? undefined : liveHint} onClick={() => mode !== "live" && actions.setSource("live")} className={seg(mode === "live")}>
+              <button type="button" aria-pressed={mode === "live"} onClick={() => (liveAvailable ? mode !== "live" && actions.setSource("live") : setConnectOpen(true))} className={seg(mode === "live")}>
                 Google Sheet
               </button>
             </div>
             {mode === "demo" ? (
-              <>
-                <p className="text-sm text-body">
-                  You are in the <strong>demo workspace</strong>. Everything is editable and saved in this browser only, so you can show the product without touching any real data.
-                </p>
-                <div>
-                  <button type="button" onClick={() => actions.resetDemo()} className="min-h-11 rounded-md border border-[#c3cec9] bg-white px-4 text-sm font-semibold hover:bg-page">
-                    Reset demo data
-                  </button>
-                </div>
-              </>
+              <p className="text-sm text-body">
+                You are in the <strong>demo workspace</strong>. Everything is editable and saved in this browser only, so you can show the product without touching any real data.
+              </p>
             ) : (
               <p className="text-sm text-body">
                 You are reading <strong>{data.source.title}</strong> live. The connection is read-only: edit the sheet itself and the dashboard picks it up on the next refresh.
               </p>
             )}
-            {!liveAvailable && <p className="rounded-lg bg-amber-bg px-3 py-2 text-sm text-amber-fg">{liveHint}</p>}
+            <div className="flex flex-wrap gap-2.5">
+              <button type="button" onClick={() => setConnectOpen(true)} className="min-h-11 rounded-md bg-accent px-5 text-sm font-semibold text-white hover:bg-accent-dark">
+                {linkedSheet ? "Change Google Sheet" : "Connect a Google Sheet"}
+              </button>
+              {linkedSheet && (
+                <button type="button" onClick={() => actions.disconnectSheet()} className="min-h-11 rounded-md border border-[#c3cec9] bg-white px-4 text-sm font-semibold hover:bg-page">
+                  Disconnect
+                </button>
+              )}
+              {mode === "demo" && (
+                <button type="button" onClick={() => actions.resetDemo()} className="min-h-11 rounded-md border border-[#c3cec9] bg-white px-4 text-sm font-semibold hover:bg-page">
+                  Reset demo data
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-muted">Paste a link to a Google Sheet shared as “Anyone with the link”. It takes about a minute, and no accounts or settings are needed.</p>
           </div>
+          {connectOpen && <ConnectSheetDialog onClose={() => setConnectOpen(false)} />}
         </Card>
 
-        <Card title="Connect a Google Sheet" headingId="connect-heading" className="lg:col-span-2">
-          <ol className="list-decimal space-y-1.5 pl-5 text-sm text-body">
-            <li>Create a service account in Google Cloud, enable the Sheets API, and download its JSON key.</li>
-            <li>
-              Set <code className="rounded bg-page px-1">GOOGLE_SERVICE_ACCOUNT_EMAIL</code> and <code className="rounded bg-page px-1">GOOGLE_PRIVATE_KEY</code> in your environment variables.
-            </li>
-            <li>Share the client&apos;s sheet with that email as Viewer.</li>
-            <li>
-              Add the sheet ID to <code className="rounded bg-page px-1">CLIENTS</code>, then switch this workspace to <Chip>Google Sheet</Chip>.
-            </li>
-          </ol>
-          <p className="mt-3 text-xs text-muted">Client: {client.name}. Full steps and the sheet layout are in the README.</p>
-        </Card>
+        <details className="group rounded-2xl border border-line bg-card shadow-[0_1px_2px_rgba(16,40,30,0.05)] lg:col-span-2">
+          <summary className="cursor-pointer list-none px-5 py-4 text-[15px] font-semibold marker:hidden">
+            Advanced: secure connection for private client data
+            <span className="ml-2 text-xs font-normal text-muted">service account, for production</span>
+          </summary>
+          <div className="px-1 pb-1">
+            <AdminTools />
+          </div>
+        </details>
       </div>
     </>
   );

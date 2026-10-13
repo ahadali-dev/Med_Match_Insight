@@ -10,7 +10,8 @@ import { buildDemoData } from "@/lib/demo-data";
 import { describeError } from "@/lib/errors";
 import { getSheetData } from "@/lib/get-sheet-data";
 import { credentialsConfigured } from "@/lib/google-sheets";
-import { sourceCookie } from "@/lib/source";
+import { SHEET_ID_PATTERN } from "@/lib/sheet-id";
+import { sheetCookie, sourceCookie } from "@/lib/source";
 
 function Loading() {
   return (
@@ -41,23 +42,24 @@ async function ClientShell({ params, children }: { params: LayoutProps<"/[client
 
   const sheetConfigured = hasSheet(client);
   const credsOk = credentialsConfigured();
-  const liveAvailable = sheetConfigured && credsOk;
-  const liveHint = !sheetConfigured
-    ? "Add this client's sheetId to the CLIENTS environment variable to enable Live."
-    : !credsOk
-      ? "Add GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_PRIVATE_KEY to enable Live."
-      : "";
+
+  // Two ways to have a live sheet: (1) the visitor pasted a link-shared sheet ("Connect a Google Sheet"),
+  // (2) the server has CLIENTS + service account credentials. A pasted link wins.
+  const jar = await cookies();
+  const linkCookie = jar.get(sheetCookie(client.id))?.value ?? "";
+  const linkedSheet = SHEET_ID_PATTERN.test(linkCookie) ? linkCookie : "";
+  const liveAvailable = Boolean(linkedSheet) || (sheetConfigured && credsOk);
+  const liveHint = liveAvailable ? "" : "Connect a Google Sheet to see live data.";
 
   // A connected sheet is the default. The visitor can switch to the demo workspace in the UI;
-  // that choice is remembered in a cookie. With no sheet configured, the demo workspace is used.
-  const jar = await cookies();
+  // that choice is remembered in a cookie. With no sheet connected, the demo workspace is used.
   const chosen = jar.get(sourceCookie(client.id))?.value;
-  const wantsLive = sheetConfigured && (chosen === "live" || (chosen !== "demo" && liveAvailable));
+  const wantsLive = liveAvailable && (chosen === "live" || chosen !== "demo");
 
   let data;
   if (wantsLive) {
     // Read on every page load; the data layer caches this for at most 60 seconds.
-    const result = await getSheetData(client.id);
+    const result = await getSheetData(client.id, linkedSheet);
     if (!result.ok) return <ConnectionProblem code={result.code} message={result.message} clients={summaries} clientId={client.id} />;
     data = result.data;
   } else {
@@ -75,6 +77,7 @@ async function ClientShell({ params, children }: { params: LayoutProps<"/[client
       mode={wantsLive ? "live" : "demo"}
       liveAvailable={liveAvailable}
       liveHint={liveHint}
+      linkedSheet={Boolean(linkedSheet)}
     >
       <Shell>{children}</Shell>
     </DashboardProvider>
