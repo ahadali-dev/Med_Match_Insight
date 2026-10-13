@@ -13,6 +13,10 @@ export function serviceAccountEmail(): string | undefined {
   return process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim() || undefined;
 }
 
+export function credentialsConfigured(): boolean {
+  return Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL?.trim() && process.env.GOOGLE_PRIVATE_KEY?.trim());
+}
+
 function auth(): JWT {
   if (cachedAuth) return cachedAuth;
   const email = serviceAccountEmail();

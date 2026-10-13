@@ -18,8 +18,9 @@ function slug(s: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-export function localSampleEnabled(): boolean {
-  return ["1", "true", "yes"].includes((process.env.USE_LOCAL_SAMPLE ?? "").toLowerCase());
+/** True when this client has a real Google Sheet behind it (not just the built-in demo). */
+export function hasSheet(c: ClientConfig): boolean {
+  return c.sheetId !== LOCAL_SHEET_ID;
 }
 
 /**
@@ -60,14 +61,8 @@ export function getClients(): ClientConfig[] {
     return [{ id: slug(name) || "client", name, sheetId: single }];
   }
 
-  if (localSampleEnabled()) {
-    return [{ id: "riverbend", name: "Riverbend Medical Group", sheetId: LOCAL_SHEET_ID }];
-  }
-
-  throw new SheetError(
-    "no_clients",
-    "No client sheet is configured. Set CLIENTS (or SHEET_ID) in your environment variables. See the README.",
-  );
+  // Nothing configured: run as a self-contained demo workspace.
+  return [{ id: "riverbend", name: "Riverbend Medical Group", sheetId: LOCAL_SHEET_ID }];
 }
 
 export function findClient(id: string): ClientConfig | undefined {

@@ -6,7 +6,6 @@ import type { SheetErrorCode } from "@/lib/errors";
 const HELP: Record<SheetErrorCode, string[]> = {
   no_clients: [
     "Add a CLIENTS environment variable listing each client's name and Google Sheet ID.",
-    "For a quick local look, set USE_LOCAL_SAMPLE=1 to use the built-in sample data.",
   ],
   unknown_client: ["Pick a client from the list below."],
   missing_credentials: [
@@ -25,10 +24,13 @@ export function ConnectionProblem({
   code,
   message,
   clients = [],
+  clientId,
 }: {
   code: SheetErrorCode;
   message: string;
   clients?: { id: string; name: string }[];
+  /** When set, offers a way back to the demo workspace. */
+  clientId?: string;
 }) {
   return (
     <main id="main" className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-5 px-4 py-10">
@@ -54,6 +56,18 @@ export function ConnectionProblem({
         >
           Try again
         </button>
+        {clientId && (
+          <button
+            type="button"
+            onClick={() => {
+              document.cookie = `mm-source-${clientId}=demo; path=/; max-age=31536000; SameSite=Lax`;
+              window.location.reload();
+            }}
+            className="ml-2 mt-5 min-h-11 rounded-md border border-[#c3cec9] bg-white px-5 text-sm font-semibold text-ink hover:bg-page"
+          >
+            Use the demo workspace instead
+          </button>
+        )}
       </div>
       {clients.length > 1 && (
         <nav aria-label="Other clients" className="text-sm">

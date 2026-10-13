@@ -1,12 +1,36 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { refreshSheet, syncSheet } from "@/app/actions";
 import { todayISO } from "@/lib/dates";
+import { getDemoSnapshot, saveDemo, subscribeDemo } from "@/lib/demo-store";
 import { buildDashboard, NO_FILTERS, type Dashboard, type Filters } from "@/lib/metrics";
-import type { SheetData } from "@/lib/types";
+import {
+  addRecord,
+  advanceCredentialing,
+  deleteRecord,
+  newUid,
+  nextProviderId,
+  startCredentialing,
+  updateConfig,
+  updateRecord,
+  type TableKind,
+} from "@/lib/mutations";
+import { sourceCookie, type SourceMode } from "@/lib/source";
+import type { Provider, SheetData } from "@/lib/types";
 
-/** The sheet is re-read in the background this often. */
+/** The sheet is re-read in the background this often (live mode). */
 export const POLL_MS = 5 * 60 * 1000;
 
 export interface ClientSummary {
@@ -22,6 +46,11 @@ interface DashboardContextValue {
   filters: Filters;
   setFilters: (f: Filters) => void;
   showSampleBadge: boolean;
+  mode: SourceMode;
+  /** A real sheet is configured for this client and credentials exist, so Live can be chosen. */
+  liveAvailable: boolean;
+  /** Live needs a sheetId in CLIENTS; says why Live is unavailable. */
+  liveHint: string;
 }
 
 /** Changes every few seconds, so it lives apart from the data: only the status widgets listen to it. */
@@ -34,20 +63,49 @@ interface SyncContextValue {
   announcement: string;
 }
 
+export interface Toast {
+  id: number;
+  message: string;
+  canUndo: boolean;
+}
+
+interface UiContextValue {
+  editMode: boolean;
+  setEditMode: (v: boolean) => void;
+  /** Demo workspace with Edit mode switched on. */
+  canEdit: boolean;
+  openProviderId: string | null;
+  openProvider: (id: string | null) => void;
+  toasts: Toast[];
+  dismissToast: (id: number) => void;
+}
+
+interface ActionsContextValue {
+  update: <K extends TableKind>(kind: K, uid: string, patch: Partial<SheetData[K][number]>, message?: string) => void;
+  add: <K extends TableKind>(kind: K, record: Omit<SheetData[K][number], "uid">, message?: string) => void;
+  /** Adds a provider and (optionally) starts their credentialing file. */
+  addProvider: (p: Omit<Provider, "uid" | "id" | "status">, startCredentialing: boolean) => void;
+  remove: (kind: TableKind, uid: string, message?: string) => void;
+  advance: (providerId: string) => void;
+  setConfig: (patch: Partial<SheetData["config"]>) => void;
+  resetDemo: () => void;
+  undo: () => void;
+  setSource: (mode: SourceMode) => void;
+}
+
 const DashboardContext = createContext<DashboardContextValue | null>(null);
 const SyncContext = createContext<SyncContextValue | null>(null);
+const UiContext = createContext<UiContextValue | null>(null);
+const ActionsContext = createContext<ActionsContextValue | null>(null);
 
-export function useSync(): SyncContextValue {
-  const ctx = useContext(SyncContext);
-  if (!ctx) throw new Error("useSync must be used inside <DashboardProvider>");
+function need<T>(ctx: T | null, name: string): T {
+  if (!ctx) throw new Error(`${name} must be used inside <DashboardProvider>`);
   return ctx;
 }
-
-export function useDashboard(): DashboardContextValue {
-  const ctx = useContext(DashboardContext);
-  if (!ctx) throw new Error("useDashboard must be used inside <DashboardProvider>");
-  return ctx;
-}
+export const useDashboard = () => need(useContext(DashboardContext), "useDashboard");
+export const useSync = () => need(useContext(SyncContext), "useSync");
+export const useUi = () => need(useContext(UiContext), "useUi");
+export const useActions = () => need(useContext(ActionsContext), "useActions");
 
 export function formatAge(min: number): string {
   if (min < 1) return "just now";
@@ -61,6 +119,9 @@ export function DashboardProvider({
   initialData,
   initialServerTime,
   showSampleBadge,
+  mode,
+  liveAvailable,
+  liveHint,
   children,
 }: {
   client: ClientSummary;
@@ -68,43 +129,73 @@ export function DashboardProvider({
   initialData: SheetData;
   initialServerTime: string;
   showSampleBadge: boolean;
+  mode: SourceMode;
+  liveAvailable: boolean;
+  liveHint: string;
   children: ReactNode;
 }) {
+  const router = useRouter();
+  const clientId = client.id;
+
+  // ---- live mode: server snapshot, polled
   const [snapshot, setSnapshot] = useState({ data: initialData, serverTime: initialServerTime });
-  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [ageMin, setAgeMin] = useState(0);
   const [announcement, setAnnouncement] = useState("");
-
-  // Client-clock time of the last good read. Only ever touched from effects and handlers.
   const syncedAt = useRef<number | null>(null);
   const inFlight = useRef(false);
-  const clientId = client.id;
 
+  // ---- demo mode: edits kept in the browser on top of the pristine sample
+  const stored = useSyncExternalStore(
+    subscribeDemo,
+    () => getDemoSnapshot(clientId),
+    () => null,
+  );
+  const demoData = stored ?? initialData;
+  const data = mode === "live" ? snapshot.data : demoData;
+
+  // ---- UI state
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [editMode, setEditMode] = useState(false);
+  const [openProviderId, openProvider] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const toastId = useRef(0);
+  const history = useRef<SheetData[]>([]);
+
+  const pushToast = useCallback((message: string, canUndo: boolean) => {
+    const id = ++toastId.current;
+    setToasts((t) => [...t.slice(-2), { id, message, canUndo }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 7000);
+  }, []);
+  const dismissToast = useCallback((id: number) => setToasts((t) => t.filter((x) => x.id !== id)), []);
+
+  const today = todayISO(new Date(mode === "live" ? snapshot.serverTime : initialServerTime));
+
+  // ---- live sync
   const run = useCallback(
-    async (mode: "poll" | "refresh") => {
+    async (kind: "poll" | "refresh") => {
       if (inFlight.current) return;
       inFlight.current = true;
-      if (mode === "refresh") {
+      if (kind === "refresh") {
         setBusy(true);
         setAnnouncement("");
       }
       try {
-        const res = mode === "refresh" ? await refreshSheet(clientId) : await syncSheet(clientId);
+        const res = kind === "refresh" ? await refreshSheet(clientId) : await syncSheet(clientId);
         if (res.ok) {
           setSnapshot({ data: res.data, serverTime: res.serverTime });
           setError(null);
           syncedAt.current = Date.now();
           setAgeMin(0);
-          if (mode === "refresh") setAnnouncement("Data refreshed from the Google Sheet.");
+          if (kind === "refresh") setAnnouncement("Data refreshed from the Google Sheet.");
         } else {
           setError(res.error);
-          if (mode === "refresh") setAnnouncement(`Refresh failed. ${res.error}`);
+          if (kind === "refresh") setAnnouncement(`Refresh failed. ${res.error}`);
         }
       } catch {
         setError("Could not reach the server. Check your connection.");
-        if (mode === "refresh") setAnnouncement("Refresh failed. Could not reach the server.");
+        if (kind === "refresh") setAnnouncement("Refresh failed. Could not reach the server.");
       } finally {
         inFlight.current = false;
         setBusy(false);
@@ -114,8 +205,8 @@ export function DashboardProvider({
   );
 
   useEffect(() => {
+    if (mode !== "live") return;
     if (syncedAt.current === null) syncedAt.current = Date.now();
-
     const poll = setInterval(() => void run("poll"), POLL_MS);
     const tick = setInterval(() => {
       const last = syncedAt.current ?? Date.now();
@@ -133,24 +224,81 @@ export function DashboardProvider({
       clearInterval(tick);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [run]);
+  }, [run, mode]);
 
-  const today = todayISO(new Date(snapshot.serverTime));
-  const dash = useMemo(() => buildDashboard(snapshot.data, filters, today), [snapshot.data, filters, today]);
+  // ---- derived numbers
+  const dash = useMemo(() => buildDashboard(data, filters, today), [data, filters, today]);
 
-  const value = useMemo<DashboardContextValue>(
-    () => ({ client, clients, data: snapshot.data, dash, filters, setFilters, showSampleBadge }),
-    [client, clients, snapshot.data, dash, filters, showSampleBadge],
+  // ---- edit actions (demo only)
+  const mutate = useCallback(
+    (fn: (d: SheetData) => SheetData, message?: string) => {
+      if (mode !== "demo") return;
+      const current = getDemoSnapshot(clientId) ?? initialData;
+      const next = fn(current);
+      if (next === current) return;
+      history.current = [...history.current.slice(-19), current];
+      saveDemo(clientId, next);
+      if (message) pushToast(message, true);
+    },
+    [mode, clientId, initialData, pushToast],
+  );
+
+  const actions = useMemo<ActionsContextValue>(
+    () => ({
+      update: (kind, uid, patch, message) => mutate((d) => updateRecord(d, kind, uid, patch as never), message),
+      add: (kind, record, message) =>
+        mutate((d) => addRecord(d, kind, { ...record, uid: newUid(kind) } as never), message ?? "Row added."),
+      addProvider: (p, start) =>
+        mutate((d) => {
+          const id = nextProviderId(d);
+          const next = addRecord(d, "providers", { ...p, uid: newUid("providers"), id, status: start ? "In credentialing" : "Ready" });
+          return start ? startCredentialing(next, id, today) : next;
+        }, `${p.name} added.`),
+      remove: (kind, uid, message) => mutate((d) => deleteRecord(d, kind, uid), message ?? "Row deleted."),
+      advance: (providerId) => mutate((d) => advanceCredentialing(d, providerId, today), "Credentialing step completed."),
+      setConfig: (patch) => mutate((d) => updateConfig(d, patch), "Settings saved."),
+      resetDemo: () => {
+        history.current = [];
+        saveDemo(clientId, null);
+        pushToast("Demo data reset to the original sample.", false);
+      },
+      undo: () => {
+        const prev = history.current[history.current.length - 1];
+        if (!prev) return;
+        history.current = history.current.slice(0, -1);
+        saveDemo(clientId, prev);
+        pushToast("Change undone.", false);
+      },
+      setSource: (m) => {
+        document.cookie = `${sourceCookie(clientId)}=${m}; path=/; max-age=31536000; SameSite=Lax`;
+        router.refresh();
+      },
+    }),
+    [mutate, clientId, today, pushToast, router],
+  );
+
+  const dashboardValue = useMemo<DashboardContextValue>(
+    () => ({ client, clients, data, dash, filters, setFilters, showSampleBadge, mode, liveAvailable, liveHint }),
+    [client, clients, data, dash, filters, showSampleBadge, mode, liveAvailable, liveHint],
   );
   const refreshNow = useCallback(() => void run("refresh"), [run]);
   const sync = useMemo<SyncContextValue>(
     () => ({ ageMin, error, busy, refreshNow, announcement }),
     [ageMin, error, busy, refreshNow, announcement],
   );
+  const canEdit = mode === "demo" && editMode;
+  const ui = useMemo<UiContextValue>(
+    () => ({ editMode, setEditMode, canEdit, openProviderId, openProvider, toasts, dismissToast }),
+    [editMode, canEdit, openProviderId, toasts, dismissToast],
+  );
 
   return (
-    <DashboardContext.Provider value={value}>
-      <SyncContext.Provider value={sync}>{children}</SyncContext.Provider>
+    <DashboardContext.Provider value={dashboardValue}>
+      <SyncContext.Provider value={sync}>
+        <UiContext.Provider value={ui}>
+          <ActionsContext.Provider value={actions}>{children}</ActionsContext.Provider>
+        </UiContext.Provider>
+      </SyncContext.Provider>
     </DashboardContext.Provider>
   );
 }

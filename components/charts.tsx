@@ -216,3 +216,68 @@ export const PipelineChart = memo(function PipelineChart({ roles }: { roles: Das
     </>
   );
 });
+
+const WORKFORCE_SERIES = [
+  { key: "Ready", fill: "#1a6b4a", text: "#ffffff" },
+  { key: "In credentialing", fill: "#9a5b00", text: "#ffffff" },
+  { key: "Onboarding", fill: "#b9ccc3", text: INK },
+] as const;
+export const WORKFORCE_COLORS = WORKFORCE_SERIES;
+
+/** Providers by location, split by status. */
+export const WorkforceChart = memo(function WorkforceChart({ rows }: { rows: Dashboard["workforce"] }) {
+  const height = Math.max(120, rows.length * 56 + 8);
+  return (
+    <>
+      <div aria-hidden="true" style={{ height }}>
+        <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 420, height }}>
+          <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 8, bottom: 4, left: 0 }} accessibilityLayer={false} barCategoryGap={14}>
+            <XAxis type="number" hide domain={[0, "dataMax"]} />
+            <YAxis type="category" dataKey="location" width={120} tickLine={false} axisLine={false} interval={0} tick={{ fontSize: 13, fill: INK }} />
+            {WORKFORCE_SERIES.map((s) => (
+              <Bar key={s.key} dataKey={s.key} stackId="w" fill={s.fill} stroke="#ffffff" strokeWidth={1.5} barSize={24} isAnimationActive={false}>
+                <LabelList
+                  dataKey={s.key}
+                  content={(props) => {
+                    const { x, y, width, height: h, value } = props as { x: number; y: number; width: number; height: number; value: number };
+                    if (!value || Number(width) < 16) return null;
+                    return (
+                      <text x={Number(x) + Number(width) / 2} y={Number(y) + Number(h) / 2} textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight={600} fill={s.text}>
+                        {value}
+                      </text>
+                    );
+                  }}
+                />
+              </Bar>
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="sr-only">
+        <table>
+          <caption>Providers by location and status</caption>
+          <thead>
+            <tr>
+              <th scope="col">Location</th>
+              {WORKFORCE_SERIES.map((s) => (
+                <th key={s.key} scope="col">
+                  {s.key}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.location}>
+                <th scope="row">{r.location}</th>
+                {WORKFORCE_SERIES.map((s) => (
+                  <td key={s.key}>{r[s.key]}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+});

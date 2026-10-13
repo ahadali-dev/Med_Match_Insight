@@ -1,6 +1,13 @@
 # Med Match Client Dashboards
 
-Live healthcare workforce dashboards. Each client is one Google Sheet; the app reads it directly through the Google Sheets API (no CSV export, no import step) and calculates every number on screen from it.
+Healthcare workforce dashboards for credentialing, licence expirations, recruiting and onboarding. Every number on screen is calculated from the data, never hard-coded.
+
+Each client has two data sources, switched in the sidebar (or Settings):
+
+- **Demo data (default).** A fully editable workspace: edit any cell, add and delete rows, complete credentialing steps, change the target days. Everything updates instantly and is saved **in your browser only**, so it is safe to show to anyone. Needs no setup.
+- **Google Sheet (live).** The app reads the client's sheet directly through the Google Sheets API (no CSV export, no import step), read-only. Needs the setup below.
+
+Also included: global provider search (press `/`), provider profile drawer, credentialing board, notifications panel, search / filter / sort / pagination / CSV export on every table, undo for edits, and a Settings page.
 
 **Stack:** Next.js (App Router, Cache Components) · TypeScript · Tailwind CSS 4 · Recharts · Google Sheets API via a read-only service account. Deploys to Netlify.
 
@@ -46,11 +53,12 @@ Dates can be real date cells or `YYYY-MM-DD` text. Rows that can't be read (unkn
 
 ```bash
 npm install
-cp .env.example .env.local     # fill in the credentials and CLIENTS
-npm run dev                    # http://localhost:3000
+npm run dev        # http://localhost:3000, opens straight into the demo workspace
 ```
 
-No Google account yet? `USE_LOCAL_SAMPLE=1 npm run dev` runs the dashboard on built-in fake data through the same parser. It is a development convenience only, and the Data source card says so.
+No environment variables are needed for the demo. For realistic speed use `npm run build && npm start`; `npm run dev` is noticeably slower.
+
+To enable the live source, copy `.env.example` to `.env.local`, fill in the credentials and `CLIENTS`, restart, and choose **Google Sheet** in the sidebar.
 
 ### Build the sample "Riverbend tracker" sheet
 
@@ -59,7 +67,7 @@ npm run seed -- --dry-run      # preview the data, no Google calls
 SEED_SHARE_WITH=you@example.com npm run seed
 ```
 
-This creates a new sheet (24 providers across North Clinic, Downtown ASC and Lakeside Practice) as the service account and shares it with you, then prints the `CLIENTS` line to use. Dates are generated relative to today, so re-run it to get a fresh "live" demo. If your Google Workspace blocks service accounts from creating files, create an empty sheet yourself, share it with the service account as **Editor**, and run with `SEED_SPREADSHEET_ID=<id>` instead. The seed script writes with the service account's full Sheets/Drive scopes; the running app never does.
+This creates a new sheet (24 providers across North Clinic, Downtown ASC and Lakeside Practice) as the service account and shares it with you, then prints the `CLIENTS` line to use. Dates are generated relative to today, so re-run it to get a fresh sheet. (The built-in demo workspace is generated the same way, and **Reset demo data** rebuilds it.) If your Google Workspace blocks service accounts from creating files, create an empty sheet yourself, share it with the service account as **Editor**, and run with `SEED_SPREADSHEET_ID=<id>` instead. The seed script writes with the service account's full Sheets/Drive scopes; the running app never does.
 
 ## How live data works
 
@@ -90,7 +98,8 @@ The Licences & expirations badge counts items due within 30 days, including expi
 
 1. Push the repo and import it in Netlify. `netlify.toml` already sets the build command and Node 22; Netlify's Next.js runtime is added automatically.
 2. Add `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY` and `CLIENTS` under *Site configuration → Environment variables*. Mark the key as a secret. Never commit it: `.env*` is git-ignored.
-3. Optional: `SAMPLE_DATA_BADGE=false` hides the "Sample data" badge for real client data.
+3. For a shareable demo with no Google setup, deploy with no environment variables at all.
+4. Optional: `SAMPLE_DATA_BADGE=false` hides the "Sample data" badge for real client data.
 
 Environment variables are read on the server only; none are exposed to the browser.
 

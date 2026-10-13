@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState, type ReactNode } from "react";
+import { EditCell, type EditSpec } from "./edit-cells";
 import { cx } from "./ui";
 
 export interface Column<T> {
@@ -12,6 +13,8 @@ export interface Column<T> {
   value?: (row: T) => string | number | null;
   /** Adds a dropdown listing this column's distinct values. */
   filter?: boolean;
+  /** Makes the cell an input while the table is in edit mode. */
+  edit?: EditSpec<T>;
 }
 
 const FIELD = "min-h-10 rounded-md border border-[#c3cec9] bg-white px-2.5 py-1.5 text-sm text-ink";
@@ -39,6 +42,10 @@ export function DataTable<T>({
   minWidth = 560,
   controls = true,
   pageSizes = [10, 25, 50],
+  editing = false,
+  onDelete,
+  rowLabel,
+  exportName,
 }: {
   caption: string;
   columns: Column<T>[];
@@ -48,6 +55,14 @@ export function DataTable<T>({
   minWidth?: number;
   controls?: boolean;
   pageSizes?: number[];
+  /** Show inputs for columns that define `edit`. */
+  editing?: boolean;
+  /** Adds a Delete button per row while editing. */
+  onDelete?: (row: T) => void;
+  /** Names a row for screen readers ("Delete Dr. Singh"). */
+  rowLabel?: (row: T) => string;
+  /** Base file name for the CSV export button. */
+  exportName?: string;
 }) {
   const uid = useId();
   const [query, setQuery] = useState("");
@@ -90,6 +105,18 @@ export function DataTable<T>({
   const visible = controls ? processed.slice(current * pageSize, (current + 1) * pageSize) : processed;
   const active = query !== "" || Object.values(filters).some(Boolean);
   const hasFilters = filterOptions.some((o) => o.length > 0);
+
+  const exportCsv = () => {
+    const cols = columns.filter((c) => c.value);
+    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const lines = [cols.map((c) => esc(c.header)).join(","), ...processed.map((r) => cols.map((c) => esc(c.value?.(r))).join(","))];
+    const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${exportName ?? caption.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const toggleSort = (col: number) => {
     setPage(0);
@@ -150,6 +177,9 @@ export function DataTable<T>({
               Clear
             </button>
           )}
+          <button type="button" className={cx(BTN, "ml-auto")} onClick={exportCsv} disabled={processed.length === 0}>
+            Export CSV
+          </button>
         </div>
       )}
 
@@ -189,6 +219,11 @@ export function DataTable<T>({
                     </th>
                   );
                 })}
+                {editing && onDelete && (
+                  <th scope="col" className="px-2 py-2 text-right font-semibold">
+                    Actions
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -196,9 +231,33 @@ export function DataTable<T>({
                 <tr key={rowKey(row, ri)} className="border-t border-line-soft align-top">
                   {columns.map((c, i) => (
                     <td key={c.header} className={cx("py-2.5 text-body", i === 0 ? "pr-2" : "px-2", c.align === "right" && "text-right", c.className)}>
-                      {c.cell(row)}
+                      {editing && c.edit ? (
+                        <EditCell
+                          type={c.edit.type}
+                          value={c.edit.get(row)}
+                          options={c.edit.options}
+                          min={c.edit.min}
+                          clearable={c.edit.clearable}
+                          label={`${c.header}${rowLabel ? ` for ${rowLabel(row)}` : ""}`}
+                          onCommit={(v) => c.edit?.set(row, v)}
+                        />
+                      ) : (
+                        c.cell(row)
+                      )}
                     </td>
                   ))}
+                  {editing && onDelete && (
+                    <td className="px-2 py-2.5 text-right">
+                      <button
+                        type="button"
+                        onClick={() => onDelete(row)}
+                        aria-label={`Delete ${rowLabel ? rowLabel(row) : "row"}`}
+                        className="min-h-10 rounded-md border border-[#e4b4ae] bg-white px-3 text-sm font-semibold text-red hover:bg-red-bg"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

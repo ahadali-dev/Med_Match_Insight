@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useDashboard } from "./dashboard-provider";
-import { DaysChart, PipelineChart, STAGE_STYLES } from "./charts";
+import { DaysChart, PipelineChart, STAGE_STYLES, WORKFORCE_COLORS, WorkforceChart } from "./charts";
+import { ProviderLink } from "./provider-link";
 import { PageHeader } from "./page-header";
 import { DataTable } from "./data-table";
 import { Card, Chip, Mono, ProgressBar, cx } from "./ui";
@@ -20,7 +21,7 @@ function Kpi({ label, value, unit, note, tone = "ink" }: {
 }) {
   const color = { ink: "text-ink", accent: "text-accent", red: "text-red", amber: "text-amber" }[tone];
   return (
-    <div className="flex flex-col gap-2 rounded-[10px] border border-line bg-card p-4">
+    <div className="flex flex-col gap-2 rounded-2xl border border-line bg-card p-4 shadow-[0_1px_2px_rgba(16,40,30,0.05)]">
       <div className="text-[13px] font-medium text-muted">{label}</div>
       <div className="flex items-baseline gap-1.5">
         <span className={cx("font-mono text-[32px] font-semibold leading-none", color)}>{value}</span>
@@ -96,7 +97,7 @@ function CredentialingInProgress() {
             header: "Provider",
             cell: (v) => (
               <>
-                <div className="font-semibold text-ink">{v.name}</div>
+                <ProviderLink id={v.provider.id}>{v.name}</ProviderLink>
                 <div className="text-xs text-muted">{v.provider.specialty}</div>
               </>
             ),
@@ -171,7 +172,7 @@ function ExpiringNext90() {
                 {g.items.map((e) => (
                   <li key={`${e.providerId}-${e.item}`} className="flex justify-between gap-3 rounded-md bg-[#f6f8f7] px-3 py-2 text-sm">
                     <div className="min-w-0">
-                      <div className="font-semibold text-ink">{e.name}</div>
+                      <ProviderLink id={e.providerId}>{e.name}</ProviderLink>
                       <div className="text-xs text-muted">{e.item}</div>
                     </div>
                     <div className="whitespace-nowrap text-right">
@@ -233,6 +234,78 @@ function RecruitingPipeline() {
   );
 }
 
+function WorkforceMix() {
+  const { dash } = useDashboard();
+  return (
+    <Card
+      title="Workforce by location"
+      headingId="mix-heading"
+      aside={
+        <ul className="flex flex-wrap gap-x-3 gap-y-1 text-body" aria-label="Legend">
+          {WORKFORCE_COLORS.map((s) => (
+            <li key={s.key} className="flex items-center gap-1.5">
+              <span aria-hidden="true" className="inline-block size-2.5 rounded-sm" style={{ background: s.fill }} />
+              {s.key}
+            </li>
+          ))}
+        </ul>
+      }
+    >
+      {dash.workforce.length === 0 ? <p className="rounded-md bg-page px-3 py-6 text-center text-sm text-muted">No providers for this selection.</p> : <WorkforceChart rows={dash.workforce} />}
+    </Card>
+  );
+}
+
+function ComplianceHealth() {
+  const { dash } = useDashboard();
+  const { clean, total, pct } = dash.compliance;
+  const r = 44;
+  const c = 2 * Math.PI * r;
+  return (
+    <Card title="Compliance health" headingId="compliance-heading">
+      <div className="flex items-center gap-5">
+        <div className="relative size-[112px] shrink-0">
+          <svg viewBox="0 0 112 112" className="size-full -rotate-90" aria-hidden="true">
+            <circle cx="56" cy="56" r={r} fill="none" stroke="#e5ece9" strokeWidth="12" />
+            <circle cx="56" cy="56" r={r} fill="none" stroke={pct !== null && pct < 100 ? "#9a5b00" : "#1a6b4a"} strokeWidth="12" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - (pct ?? 0) / 100)} />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center font-mono text-2xl font-semibold">{pct === null ? "–" : `${pct}%`}</div>
+        </div>
+        <p className="text-sm leading-snug text-body">
+          {total === 0 ? "No providers for this selection." : `${clean} of ${total} providers have no licence, DEA, certification or insurance item expired or due within 30 days.`}
+        </p>
+      </div>
+    </Card>
+  );
+}
+
+function UpcomingStarts() {
+  const { dash, client } = useDashboard();
+  const next = dash.onboarding.filter((o) => o.daysToStart >= -7).slice(0, 4);
+  return (
+    <Card title="Upcoming starts" headingId="starts-heading" aside={<Link href={`/${client.id}/onboarding`} className="text-[13px] font-semibold">View all</Link>}>
+      {next.length === 0 ? (
+        <p className="rounded-md bg-page px-3 py-6 text-center text-sm text-muted">No upcoming starts.</p>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {next.map((o) => (
+            <li key={o.row.uid} className="flex flex-col gap-1.5">
+              <div className="flex items-baseline justify-between gap-2 text-sm">
+                <ProviderLink id={o.row.providerId}>{o.name}</ProviderLink>
+                <span className="whitespace-nowrap text-xs text-muted">{o.daysToStart > 0 ? `in ${o.daysToStart} days` : o.daysToStart === 0 ? "today" : `${-o.daysToStart} days ago`} · {formatDate(o.row.startDate, dash.today)}</span>
+              </div>
+              <ProgressBar pct={o.pct} label={`${o.name} onboarding progress`} />
+              <p className="text-xs text-muted">
+                {o.row.stepsDone} of {o.row.stepsTotal} steps{o.row.nextStep ? ` · next: ${o.row.nextStep}` : ""}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
 const TONE: Record<AttentionTone, "bad" | "warn" | "neutral"> = { urgent: "bad", overdue: "bad", waiting: "warn", stalled: "warn" };
 
 function NeedsAttention() {
@@ -287,6 +360,11 @@ export function OverviewView() {
       <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <WhereTheDaysGo />
         <RecruitingPipeline />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_minmax(0,1.7fr)]">
+        <WorkforceMix />
+        <ComplianceHealth />
+        <UpcomingStarts />
       </div>
       <NeedsAttention />
     </>

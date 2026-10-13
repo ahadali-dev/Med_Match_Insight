@@ -125,6 +125,7 @@ export function parseSheet(raw: RawTabs, source: SheetData["source"], fetchedAt:
     } else {
       providerIds.add(id);
       providers.push({
+        uid: `providers:${row}`,
         id,
         name: text(cells.name),
         credential: text(cells.credential),
@@ -149,6 +150,7 @@ export function parseSheet(raw: RawTabs, source: SheetData["source"], fetchedAt:
     else if (text(completedRaw) !== "" && !completedDate) skip("Credentialing", row, "completed_date is not a date");
     else {
       credentialing.push({
+        uid: `credentialing:${row}`,
         providerId,
         step,
         startedDate,
@@ -167,7 +169,7 @@ export function parseSheet(raw: RawTabs, source: SheetData["source"], fetchedAt:
     if (!providerIds.has(providerId)) skip("Expirations", row, `provider_id "${providerId}" is not in Providers`);
     else if (!text(cells.item)) skip("Expirations", row, "item is blank");
     else if (!expiryDate) skip("Expirations", row, "expiry_date is blank or not a date");
-    else expirations.push({ providerId, item: text(cells.item), expiryDate });
+    else expirations.push({ uid: `expirations:${row}`, providerId, item: text(cells.item), expiryDate });
   }
 
   // Roles
@@ -179,6 +181,7 @@ export function parseSheet(raw: RawTabs, source: SheetData["source"], fetchedAt:
     else {
       const n = (k: string) => Math.max(0, Math.round(num(cells[k]) ?? 0));
       roles.push({
+        uid: `roles:${row}`,
         title: text(cells.title),
         location: text(cells.location),
         specialty: text(cells.specialty),
@@ -200,6 +203,7 @@ export function parseSheet(raw: RawTabs, source: SheetData["source"], fetchedAt:
     else if (stepsTotal === null || stepsTotal <= 0) skip("Onboarding", row, "steps_total must be a number above 0");
     else {
       onboarding.push({
+        uid: `onboarding:${row}`,
         providerId,
         startDate,
         stepsDone: Math.min(Math.max(0, Math.round(stepsDone)), Math.round(stepsTotal)),

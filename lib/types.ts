@@ -20,6 +20,8 @@ export const CREDENTIAL_STEPS = ["Application", "Verification", "Payer enrollmen
 export const PIPELINE_STAGES = ["Applied", "Screened", "Submitted", "Interview", "Offer"] as const;
 
 export interface Provider {
+  /** Stable row identity inside the app (used for editing). */
+  uid: string;
   id: string;
   name: string;
   credential: string;
@@ -29,6 +31,8 @@ export interface Provider {
 }
 
 export interface CredentialingRow {
+  /** Stable row identity inside the app (used for editing). */
+  uid: string;
   providerId: string;
   /** 1 to 4 */
   step: number;
@@ -40,12 +44,16 @@ export interface CredentialingRow {
 }
 
 export interface Expiration {
+  /** Stable row identity inside the app (used for editing). */
+  uid: string;
   providerId: string;
   item: string;
   expiryDate: ISODate;
 }
 
 export interface Role {
+  /** Stable row identity inside the app (used for editing). */
+  uid: string;
   title: string;
   location: string;
   /** Optional column. Blank means the role applies to every specialty. */
@@ -56,6 +64,8 @@ export interface Role {
 }
 
 export interface OnboardingRow {
+  /** Stable row identity inside the app (used for editing). */
+  uid: string;
   providerId: string;
   startDate: ISODate;
   stepsDone: number;
@@ -78,7 +88,7 @@ export interface SheetData {
   /** Rows that were skipped or defaulted while reading the sheet. */
   warnings: string[];
   source: {
-    kind: "google" | "local";
+    kind: "google" | "demo";
     /** Title of the spreadsheet file. */
     title: string;
     url: string | null;

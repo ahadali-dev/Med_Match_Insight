@@ -49,6 +49,7 @@ export interface ProviderView {
 export type ExpiryBucket = "expired" | "d30" | "d60" | "d90" | "later";
 
 export interface ExpirationView {
+  uid: string;
   providerId: string;
   name: string;
   location: string;
@@ -60,6 +61,7 @@ export interface ExpirationView {
 }
 
 export interface CredentialingLine {
+  uid: string;
   providerId: string;
   name: string;
   location: string;
@@ -133,6 +135,9 @@ export interface Dashboard {
   roles: RoleView[];
   onboarding: OnboardingView[];
   attention: AttentionItem[];
+  workforce: { location: string; Ready: number; "In credentialing": number; Onboarding: number }[];
+  /** Providers with nothing expired or due within 30 days. */
+  compliance: { clean: number; total: number; pct: number | null };
 }
 
 function bucketOf(days: number): ExpiryBucket {
@@ -149,7 +154,7 @@ const unique = (xs: string[]) => [...new Set(xs.filter(Boolean))].sort((a, b) =>
 const lcFirst = (s: string) => (/^[A-Z][a-z]/.test(s) ? s[0].toLowerCase() + s.slice(1) : s);
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-function viewProvider(provider: Provider, allRows: CredentialingRow[], today: ISODate): ProviderView {
+export function viewProvider(provider: Provider, allRows: CredentialingRow[], today: ISODate): ProviderView {
   const rows = allRows.filter((r) => r.providerId === provider.id).sort((a, b) => a.step - b.step);
   const name = displayName(provider);
   if (rows.length === 0) {
@@ -214,6 +219,7 @@ export function buildDashboard(data: SheetData, filters: Filters, today: ISODate
       const p = byId.get(e.providerId) as Provider;
       const days = diffDays(today, e.expiryDate);
       return {
+        uid: e.uid,
         providerId: p.id,
         name: displayName(p),
         location: p.location,
@@ -283,6 +289,7 @@ export function buildDashboard(data: SheetData, filters: Filters, today: ISODate
     .map((r) => {
       const v = viewById.get(r.providerId) as ProviderView;
       return {
+        uid: r.uid,
         providerId: r.providerId,
         name: v.name,
         location: v.provider.location,
@@ -348,6 +355,18 @@ export function buildDashboard(data: SheetData, filters: Filters, today: ISODate
     });
   }
 
+  const flagged = new Set(expirations.filter((e) => e.days <= 30).map((e) => e.providerId));
+  const workforce = unique(providers.map((p) => p.location)).map((location) => {
+    const here = providers.filter((p) => p.location === location);
+    return {
+      location,
+      Ready: here.filter((p) => p.status === "Ready").length,
+      "In credentialing": here.filter((p) => p.status === "In credentialing").length,
+      Onboarding: here.filter((p) => p.status === "Onboarding").length,
+    };
+  });
+  const clean = providers.filter((p) => !flagged.has(p.id)).length;
+
   return {
     today,
     targetDays: target,
@@ -379,6 +398,8 @@ export function buildDashboard(data: SheetData, filters: Filters, today: ISODate
     roles,
     onboarding,
     attention,
+    workforce,
+    compliance: { clean, total: providers.length, pct: providers.length ? Math.round((clean / providers.length) * 100) : null },
   };
 }
 
