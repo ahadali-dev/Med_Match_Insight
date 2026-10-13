@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { formatAge, useActions, useDashboard, useSync, useUi } from "./dashboard-provider";
 import { Chip, SampleBadge, cx } from "./ui";
-import { displayName } from "@/lib/metrics";
+import { displayName, type Dashboard } from "@/lib/metrics";
 
 const ICONS = {
   overview: "M3 12l9-8 9 8M5 10v10h14V10",
@@ -200,22 +200,14 @@ function DataSourceCard() {
   );
 }
 
-function useDismiss(open: boolean, close: () => void) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, close]);
-}
-
 function GlobalSearch() {
   const { data } = useDashboard();
   const { openProvider } = useUi();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  useDismiss(open, () => setOpen(false));
+  const searchRef = useRef<HTMLDivElement>(null);
+  useOutsideClose(open, searchRef, () => setOpen(false));
 
   // "/" jumps to search, like most web apps.
   useEffect(() => {
@@ -243,12 +235,7 @@ function GlobalSearch() {
   };
 
   return (
-    <div
-      className="relative w-full max-w-md"
-      onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false);
-      }}
-    >
+    <div ref={searchRef} className="relative w-full max-w-md">
       <label htmlFor="global-search" className="sr-only">
         Find a provider
       </label>
@@ -302,23 +289,41 @@ function GlobalSearch() {
   );
 }
 
+/** Where an attention item should take you. */
+export function attentionHref(clientId: string, link: Dashboard["attention"][number]["link"]): string {
+  return "providerId" in link ? `/${clientId}/providers/${encodeURIComponent(link.providerId)}` : `/${clientId}/${link.page}`;
+}
+
+/** Closes a popover when the pointer goes down outside it or Escape is pressed. */
+function useOutsideClose(open: boolean, ref: React.RefObject<HTMLElement | null>, close: () => void) {
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) close();
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, ref, close]);
+}
+
 function Notifications() {
   const { dash, client } = useDashboard();
   const [open, setOpen] = useState(false);
   const panelId = useId();
-  useDismiss(open, () => setOpen(false));
+  const wrapRef = useRef<HTMLDivElement>(null);
+  useOutsideClose(open, wrapRef, () => setOpen(false));
   const n = dash.attention.length;
   return (
-    <div
-      className="relative"
-      onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false);
-      }}
-    >
+    <div ref={wrapRef} className="relative">
       <button
         type="button"
         aria-expanded={open}
-        aria-controls={panelId}
+        aria-controls={open ? panelId : undefined}
         onClick={() => setOpen((o) => !o)}
         className="relative flex size-10 items-center justify-center rounded-lg border border-line bg-white text-ink hover:bg-page"
       >
@@ -333,21 +338,28 @@ function Notifications() {
         )}
       </button>
       {open && (
-        <div id={panelId} className="absolute right-0 top-full z-40 mt-1.5 w-[min(360px,calc(100vw-2rem))] rounded-xl border border-line bg-white p-2 shadow-lg">
+        <div id={panelId} className="absolute right-0 top-full z-40 mt-1.5 w-[min(380px,calc(100vw-2rem))] rounded-xl border border-line bg-white p-2 shadow-lg">
           <h2 className="px-2 py-1.5 text-sm font-semibold">Needs attention</h2>
           {n === 0 ? (
             <p className="px-2 py-3 text-sm text-muted">All clear.</p>
           ) : (
-            <ul className="max-h-80 overflow-y-auto">
-              {dash.attention.slice(0, 8).map((a) => (
-                <li key={a.id} className="rounded-lg px-2 py-2 hover:bg-page">
-                  <Chip tone={a.tone === "urgent" || a.tone === "overdue" ? "bad" : "warn"}>{a.tag}</Chip>
-                  <p className="mt-1 text-sm font-medium leading-snug">{a.title}</p>
+            <ul className="max-h-[min(26rem,calc(100dvh-13rem))] overflow-y-auto">
+              {dash.attention.map((a) => (
+                <li key={a.id}>
+                  <Link
+                    href={attentionHref(client.id, a.link)}
+                    onClick={() => setOpen(false)}
+                    className="block rounded-lg px-2 py-2 text-ink no-underline hover:bg-page hover:text-ink"
+                  >
+                    <Chip tone={a.tone === "urgent" || a.tone === "overdue" ? "bad" : "warn"}>{a.tag}</Chip>
+                    <span className="mt-1 block text-sm font-medium leading-snug">{a.title}</span>
+                    <span className="block text-xs text-muted">{a.detail}</span>
+                  </Link>
                 </li>
               ))}
             </ul>
           )}
-          <Link href={`/${client.id}`} onClick={() => setOpen(false)} className="mt-1 block rounded-lg px-2 py-2 text-sm font-semibold">
+          <Link href={`/${client.id}`} onClick={() => setOpen(false)} className="mt-1 block rounded-lg border-t border-line px-2 py-2.5 text-sm font-semibold">
             Open the overview
           </Link>
         </div>

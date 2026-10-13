@@ -98,6 +98,8 @@ export interface AttentionItem {
   title: string;
   detail: string;
   owner: string;
+  /** Where "open" should go: a provider's page, or one of the list pages. */
+  link: { providerId: string } | { page: "credentialing" | "recruiting" | "expirations" };
 }
 
 export interface Kpis {
@@ -315,6 +317,7 @@ export function buildDashboard(data: SheetData, filters: Filters, today: ISODate
       title: `${e.item} for ${e.name} ${when}`,
       detail: e.days < 0 ? `Lapsed on ${formatDate(e.date, today)}. ${e.location}.` : `${plural(e.days, "day")} left. ${e.location}.`,
       owner: "Credentialing",
+      link: { providerId: e.providerId },
     });
   }
   for (const v of overTargetViews) {
@@ -328,6 +331,7 @@ export function buildDashboard(data: SheetData, filters: Filters, today: ISODate
       title: `${v.name} at ${v.daysOpen} days in credentialing`,
       detail: `${plural(over, "day")} over the ${target}-day target. ${where}${waiting}.`,
       owner: "Credentialing",
+      link: { providerId: v.provider.id },
     });
   }
   if (waitingOnProviderViews.length > 0) {
@@ -341,6 +345,7 @@ export function buildDashboard(data: SheetData, filters: Filters, today: ISODate
       title: `${plural(n, "provider")} ${n === 1 ? "has" : "have"} not sent documents`,
       detail: `${shown.join("; ")}${rest > 0 ? `; and ${rest} more` : ""}.`,
       owner: "Credentialing",
+      link: n === 1 ? { providerId: waitingOnProviderViews[0].provider.id } : { page: "credentialing" },
     });
   }
   for (const r of roles.filter((x) => x.stalled)) {
@@ -352,6 +357,7 @@ export function buildDashboard(data: SheetData, filters: Filters, today: ISODate
       title: `${r.role.title} search open ${r.openDays} days`,
       detail: `${r.role.location}. ${plural(r.total, "candidate")} in the pipeline, ${interview} at interview, ${plural(offer, "offer")}.`,
       owner: "Recruiting",
+      link: { page: "recruiting" },
     });
   }
 

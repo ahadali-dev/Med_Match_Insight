@@ -5,6 +5,7 @@ import { useDashboard } from "./dashboard-provider";
 import { DaysChart, PipelineChart, STAGE_STYLES, WORKFORCE_COLORS, WorkforceChart } from "./charts";
 import { ProviderLink } from "./provider-link";
 import { PageHeader } from "./page-header";
+import { attentionHref } from "./shell";
 import { DataTable } from "./data-table";
 import { Card, Chip, Mono, ProgressBar, cx } from "./ui";
 import { formatDate } from "@/lib/dates";
@@ -309,7 +310,7 @@ function UpcomingStarts() {
 const TONE: Record<AttentionTone, "bad" | "warn" | "neutral"> = { urgent: "bad", overdue: "bad", waiting: "warn", stalled: "warn" };
 
 function NeedsAttention() {
-  const { dash } = useDashboard();
+  const { dash, client } = useDashboard();
   const [all, setAll] = useState(false);
   const LIMIT = 9;
   const items = all ? dash.attention : dash.attention.slice(0, LIMIT);
@@ -329,7 +330,12 @@ function NeedsAttention() {
                 <Chip tone={TONE[a.tone]}>{a.tag}</Chip>
                 <div className="text-sm font-semibold leading-snug">{a.title}</div>
                 <div className="text-[13px] leading-snug text-muted">{a.detail}</div>
-                <div className="mt-auto text-xs text-body">Owner: {a.owner}</div>
+                <div className="mt-auto flex w-full items-center justify-between gap-2 pt-1 text-xs text-body">
+                  <span>Owner: {a.owner}</span>
+                  <Link href={attentionHref(client.id, a.link)} className="font-semibold">
+                    Open<span className="sr-only"> {a.title}</span> →
+                  </Link>
+                </div>
               </li>
             ))}
           </ul>
