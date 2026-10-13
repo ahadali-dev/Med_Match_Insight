@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useActions, useDashboard, useUi } from "./dashboard-provider";
 import { DataTable } from "./data-table";
 import { AddForm, type FormField } from "./edit-cells";
+import { EXPIRY_ITEMS, YES_NO, providerFields } from "./forms";
 import { PageHeader } from "./page-header";
 import { ProviderLink } from "./provider-link";
 import { Card, Chip, Mono, ProgressBar, cx } from "./ui";
@@ -11,9 +12,6 @@ import { formatDate } from "@/lib/dates";
 import { displayName } from "@/lib/metrics";
 import { CREDENTIAL_STEPS, PIPELINE_STAGES, PROVIDER_STATUSES, type Role } from "@/lib/types";
 
-const CREDENTIALS = ["MD", "RN", "CRNA", "NP"];
-const EXPIRY_ITEMS = ["Licence", "DEA", "Board certification", "Malpractice", "BLS/ACLS"];
-const YES_NO = ["yes", "no"];
 const checkbox = "size-5 accent-[#1a6b4a]";
 
 const toInt = (v: string) => Math.max(0, Math.round(Number(v) || 0));
@@ -28,13 +26,7 @@ export function ProvidersView() {
   const { canEdit, openProvider } = useUi();
   const actions = useActions();
   const rows = [...dash.providers].sort((a, b) => a.provider.name.localeCompare(b.provider.name));
-  const fields: FormField[] = [
-    { key: "name", label: "Name (e.g. J. Smith)", type: "text", required: true },
-    { key: "credential", label: "Credential", type: "select", options: CREDENTIALS },
-    { key: "specialty", label: "Specialty", type: "combo", options: dash.specialties, required: true },
-    { key: "location", label: "Location", type: "combo", options: dash.locations, required: true },
-    { key: "status", label: "Status", type: "select", options: [...PROVIDER_STATUSES] },
-  ];
+  const fields = providerFields(dash.specialties, dash.locations);
   return (
     <>
       <PageHeader title="Providers" crumb="Providers" />

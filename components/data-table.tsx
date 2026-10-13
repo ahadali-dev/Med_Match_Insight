@@ -4,6 +4,7 @@ import { useId, useMemo, useState, type ReactNode } from "react";
 import { useUi } from "./dashboard-provider";
 import { EditCell, FormDialog, type EditSpec, type FormField } from "./edit-cells";
 import { Modal } from "./modal";
+import { RowMenu, type MenuItem } from "./row-menu";
 import { cx } from "./ui";
 
 export interface Column<T> {
@@ -35,7 +36,6 @@ export interface RowActions<T> {
 }
 
 const FIELD = "min-h-10 rounded-md border border-[#c3cec9] bg-white px-2.5 py-1.5 text-sm text-ink";
-const ACTION = "min-h-9 rounded-md border border-[#c3cec9] bg-white px-2.5 text-xs font-semibold text-ink hover:bg-page";
 const BTN =
   "min-h-10 min-w-10 rounded-md border border-[#c3cec9] bg-white px-3 text-sm font-semibold text-ink hover:bg-page disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -83,7 +83,7 @@ export function DataTable<T>({
   const { canEdit, openProvider } = useUi();
   const [editRow, setEditRow] = useState<T | null>(null);
   const [detailRow, setDetailRow] = useState<T | null>(null);
-  const showActions = Boolean(controls && actions);
+  const showActions = Boolean(actions);
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<Record<number, string>>({});
   const [sort, setSort] = useState<{ col: number; dir: "asc" | "desc" } | null>(null);
@@ -266,22 +266,24 @@ export function DataTable<T>({
                     </td>
                   ))}
                   {showActions && actions && (
-                    <td className="px-2 py-2.5 text-right">
-                      <div className="flex justify-end gap-1.5">
-                        <button type="button" className={ACTION} aria-label={`Details for ${rowLabel ? rowLabel(row) : "row"}`} onClick={() => (actions.details ? actions.details(row) : setDetailRow(row))}>
-                          Details
-                        </button>
-                        {canEdit && actions.edit && (
-                          <button type="button" className={ACTION} aria-label={`Edit ${rowLabel ? rowLabel(row) : "row"}`} onClick={() => setEditRow(row)}>
-                            Edit
-                          </button>
-                        )}
-                        {canEdit && actions.remove && (
-                          <button type="button" className={cx(ACTION, "border-[#e4b4ae] text-red hover:bg-red-bg")} aria-label={`Delete ${rowLabel ? rowLabel(row) : "row"}`} onClick={() => actions.remove?.(row)}>
-                            Delete
-                          </button>
-                        )}
-                      </div>
+                    <td className="w-14 px-2 py-1.5 text-right">
+                      <RowMenu
+                        label={`Actions for ${rowLabel ? rowLabel(row) : "row"}`}
+                        items={[
+                          {
+                            label: "Details",
+                            icon: "details",
+                            onSelect: () => {
+                              const pid = actions.providerId?.(row);
+                              if (actions.details) actions.details(row);
+                              else if (pid) openProvider(pid);
+                              else setDetailRow(row);
+                            },
+                          },
+                          ...(canEdit && actions.edit ? [{ label: "Edit", icon: "edit", onSelect: () => setEditRow(row) } as MenuItem] : []),
+                          ...(canEdit && actions.remove ? [{ label: "Delete", icon: "delete", danger: true, onSelect: () => actions.remove?.(row) } as MenuItem] : []),
+                        ]}
+                      />
                     </td>
                   )}
                 </tr>
@@ -349,19 +351,6 @@ export function DataTable<T>({
               </div>
             ))}
           </dl>
-          {actions?.providerId?.(detailRow) && (
-            <button
-              type="button"
-              className="mt-5 min-h-10 rounded-md bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-dark"
-              onClick={() => {
-                const id = actions.providerId?.(detailRow);
-                setDetailRow(null);
-                if (id) openProvider(id);
-              }}
-            >
-              Open provider profile
-            </button>
-          )}
         </Modal>
       )}
     </div>

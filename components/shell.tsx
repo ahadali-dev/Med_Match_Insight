@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { formatAge, useActions, useDashboard, useSync, useUi } from "./dashboard-provider";
-import { ProviderDrawer } from "./provider-drawer";
 import { Chip, SampleBadge, cx } from "./ui";
 import { displayName } from "@/lib/metrics";
 
@@ -578,7 +577,6 @@ export function Shell({ children }: { children: ReactNode }) {
 
       <Announcer />
       <Toaster />
-      <ProviderDrawer />
     </div>
   );
 }

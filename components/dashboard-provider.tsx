@@ -72,8 +72,8 @@ export interface Toast {
 interface UiContextValue {
   /** True in the demo workspace, where rows can be edited, added and deleted. */
   canEdit: boolean;
-  openProviderId: string | null;
-  openProvider: (id: string | null) => void;
+  /** Opens the provider's full detail page. */
+  openProvider: (id: string) => void;
   toasts: Toast[];
   dismissToast: (id: number) => void;
 }
@@ -155,7 +155,7 @@ export function DashboardProvider({
 
   // ---- UI state
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
-  const [openProviderId, openProvider] = useState<string | null>(null);
+  const openProvider = useCallback((id: string) => router.push(`/${clientId}/providers/${encodeURIComponent(id)}`), [router, clientId]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastId = useRef(0);
   const history = useRef<SheetData[]>([]);
@@ -285,8 +285,8 @@ export function DashboardProvider({
   );
   const canEdit = mode === "demo";
   const ui = useMemo<UiContextValue>(
-    () => ({ canEdit, openProviderId, openProvider, toasts, dismissToast }),
-    [canEdit, openProviderId, toasts, dismissToast],
+    () => ({ canEdit, openProvider, toasts, dismissToast }),
+    [canEdit, openProvider, toasts, dismissToast],
   );
 
   return (
