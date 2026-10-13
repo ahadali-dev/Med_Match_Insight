@@ -278,7 +278,7 @@ export function ProviderDetailView({ id }: { id: string }) {
       </div>
 
       <Card
-        title="Licences & expirations"
+        title="Licenses & expirations"
         headingId="p-exp"
         aside={`${items.length} ${items.length === 1 ? "item" : "items"}`}
       >
@@ -290,7 +290,7 @@ export function ProviderDetailView({ id }: { id: string }) {
           </div>
         )}
         <DataTable
-          caption={`Licences and expirations for ${view.name}`}
+          caption={`Licenses and expirations for ${view.name}`}
           controls={false}
           empty="Nothing tracked for this provider yet."
           rows={items}
@@ -349,7 +349,7 @@ export function ProviderDetailView({ id }: { id: string }) {
           title="Add expiration"
           submitLabel="Add"
           fields={expirationFields()}
-          initial={{ item: "Licence" }}
+          initial={{ item: "License" }}
           onSubmit={(v) => actions.add("expirations", { providerId: provider.id, item: v.item.trim(), expiryDate: v.date })}
           onClose={() => setDialog(null)}
         />

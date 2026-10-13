@@ -1,11 +1,11 @@
 # Med Match Client Dashboards
 
-Healthcare workforce dashboards for credentialing, licence expirations, recruiting and onboarding. Every number on screen is calculated from the data, never hard-coded.
+Healthcare workforce dashboards for credentialing, license expirations, recruiting and onboarding. Every number on screen is calculated from the data, never hard-coded.
 
 Each client has two data sources, switched in the sidebar (or Settings):
 
-- **Demo data (default).** A fully editable workspace: every table row has Details, Edit and Delete buttons, status and similar fields are dropdowns right in the row, and you can add rows, complete credentialing steps and change the target days. Everything updates instantly and is saved **in your browser only**, so it is safe to show to anyone. Needs no setup.
-- **Google Sheet (live).** The app reads the client's sheet directly through the Google Sheets API (no CSV export, no import step), read-only. Needs the setup below.
+- **Demo data (default until a sheet is connected).** A fully editable workspace: every table row has Details, Edit and Delete buttons, status and similar fields are dropdowns right in the row, and you can add rows, complete credentialing steps and change the target days. Everything updates instantly and is saved **in your browser only**, so it is safe to show to anyone. Needs no setup.
+- **Google Sheet (live, and the default as soon as the client's sheet and the service account credentials are configured).** The app reads the client's sheet directly through the Google Sheets API (no CSV export, no import step), read-only. Needs the setup below.
 
 Also included: global provider search (press `/`), provider profile drawer, credentialing board, notifications panel, search / filter / sort / pagination / CSV export on every table, undo for edits, and a Settings page.
 
@@ -37,7 +37,7 @@ The sheet needs these six tabs with exactly these names, and column headers in r
 | --- | --- |
 | **Providers** | `id`, `name`, `credential` (MD/RN/CRNA/NP), `specialty`, `location`, `status` (Ready / In credentialing / Onboarding) |
 | **Credentialing** | `provider_id`, `step` (1-4: Application, Verification, Payer enrollment, Privileges), `started_date`, `completed_date`, `waiting_on`, `waiting_on_provider` (yes/no) |
-| **Expirations** | `provider_id`, `item` (licence, DEA, board cert, malpractice, BLS/ACLS), `expiry_date` |
+| **Expirations** | `provider_id`, `item` (license, DEA, board cert, malpractice, BLS/ACLS), `expiry_date` |
 | **Roles** | `title`, `location`, `specialty` (optional), `opened_date`, `applied`, `screened`, `submitted`, `interview`, `offer` |
 | **Onboarding** | `provider_id`, `start_date`, `steps_done`, `steps_total`, `next_step` |
 | **Config** | `client_name`, `target_days_to_credential` (row 1 headers, row 2 values) |
@@ -92,7 +92,7 @@ All calculations are in `lib/metrics.ts` and use only sheet data, today's date, 
 | Where the days go | Average length of every finished step, per step (all history in the filter) |
 | Needs attention | Rules: item expired / due ≤ 30 days · file open > target days · providers waiting on documents · role open > 60 days |
 
-The Licences & expirations badge counts items due within 30 days, including expired ones. Location and specialty filters apply to every card, chart, table and badge. Roles have no provider, so they follow the location filter and the optional `specialty` column.
+The Licenses & expirations badge counts items due within 30 days, including expired ones. Location and specialty filters apply to every card, chart, table and badge. Roles have no provider, so they follow the location filter and the optional `specialty` column.
 
 ## Deploy to Netlify
 

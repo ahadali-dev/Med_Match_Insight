@@ -22,7 +22,7 @@ const NAV: { label: string; path: string; icon: keyof typeof ICONS; badge?: bool
   { label: "Overview", path: "", icon: "overview" },
   { label: "Providers", path: "/providers", icon: "providers" },
   { label: "Credentialing", path: "/credentialing", icon: "credentialing" },
-  { label: "Licences & expirations", path: "/expirations", icon: "expirations", badge: true },
+  { label: "Licenses & expirations", path: "/expirations", icon: "expirations", badge: true },
   { label: "Payer enrollment", path: "/payer-enrollment", icon: "payer" },
   { label: "Recruiting", path: "/recruiting", icon: "recruiting" },
   { label: "Onboarding", path: "/onboarding", icon: "onboarding" },

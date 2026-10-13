@@ -273,7 +273,7 @@ function ComplianceHealth() {
           <div className="absolute inset-0 flex items-center justify-center font-mono text-2xl font-semibold">{pct === null ? "–" : `${pct}%`}</div>
         </div>
         <p className="text-sm leading-snug text-body">
-          {total === 0 ? "No providers for this selection." : `${clean} of ${total} providers have no licence, DEA, certification or insurance item expired or due within 30 days.`}
+          {total === 0 ? "No providers for this selection." : `${clean} of ${total} providers have no license, DEA, certification or insurance item expired or due within 30 days.`}
         </p>
       </div>
     </Card>

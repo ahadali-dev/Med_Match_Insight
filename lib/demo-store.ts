@@ -4,7 +4,7 @@
  */
 import type { SheetData } from "./types";
 
-const VERSION = 1;
+const VERSION = 2;
 const key = (clientId: string) => `mm-demo-${VERSION}-${clientId}`;
 
 const cache = new Map<string, SheetData | null>();

@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
 
-/** A centred dialog built on the native <dialog> element (focus trap, Escape and backdrop handled by the browser). */
+/** A centered dialog built on the native <dialog> element (focus trap, Escape and backdrop handled by the browser). */
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();

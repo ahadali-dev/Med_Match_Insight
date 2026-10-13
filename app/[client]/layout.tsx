@@ -48,9 +48,11 @@ async function ClientShell({ params, children }: { params: LayoutProps<"/[client
       ? "Add GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_PRIVATE_KEY to enable Live."
       : "";
 
-  // Demo is the default. Live is chosen in the UI and remembered in a cookie.
+  // A connected sheet is the default. The visitor can switch to the demo workspace in the UI;
+  // that choice is remembered in a cookie. With no sheet configured, the demo workspace is used.
   const jar = await cookies();
-  const wantsLive = sheetConfigured && jar.get(sourceCookie(client.id))?.value === "live";
+  const chosen = jar.get(sourceCookie(client.id))?.value;
+  const wantsLive = sheetConfigured && (chosen === "live" || (chosen !== "demo" && liveAvailable));
 
   let data;
   if (wantsLive) {

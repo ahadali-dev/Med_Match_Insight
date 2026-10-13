@@ -14,14 +14,14 @@ About 10 minutes. Everything runs on invented data in the **Demo data** source, 
 1. **Overview** (the headline)
    - "Ready to work: 15 of 24" is who can be scheduled today.
    - "Credentialing in progress": the red days are files past the 60-day target. Dr. Patel is at 88 days, waiting on the medical staff committee.
-   - "Expiring in the next 90 days": licences and certifications grouped 30 / 60 / 90 days.
+   - "Expiring in the next 90 days": licenses and certifications grouped 30 / 60 / 90 days.
    - "Where the days go": payer enrollment is the slowest step.
    - "Needs attention this week" builds itself from rules. Nobody maintains this list.
 2. **Filters**: pick *Downtown ASC*. Every card, chart and table narrows. Switch back.
 3. **Click a provider name** (for example Dr. L. Chen): full profile with the credentialing timeline, expirations, onboarding.
 4. **Credentialing board**: drag Dr. L. Chen from *Application* to *Payer enrollment*. Go back to Overview: the numbers moved. Drag a card to *Finished*; the provider moves to Onboarding. Use **Undo**.
 5. **Providers table**: change a status from the dropdown in the row. Open the **⋮** menu: Details, Edit, Delete. Use search, filters and **Export CSV**.
-6. **Licences & expirations**: sort by time left, edit a date from the row menu.
+6. **Licenses & expirations**: sort by time left, edit a date from the row menu.
 7. **Recruiting**: stalled searches (open 60+ days) in red.
 8. **The sheet connection** (Settings or sidebar): "In production each client's tracker is a Google Sheet. The dashboard reads it live every 5 minutes, read-only. Your team keeps working in the sheet they already use."
 
