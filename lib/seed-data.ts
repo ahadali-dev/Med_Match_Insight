@@ -110,21 +110,21 @@ const IN_PROGRESS: [string, number, number, number, string, boolean][] = [
 
 /** Expiry dates we want to land inside the next 90 days: [provider, item, days from today]. */
 const EXPIRING_SOON: [string, string, number][] = [
-  ["R. Singh", "Licence", 18],
+  ["R. Singh", "License", 18],
   ["F. Tanaka", "Malpractice", 26],
   ["T. Nguyen", "DEA", 37],
   ["M. Reyes", "Malpractice", 44],
   ["K. Walsh", "Board certification", 58],
-  ["B. Harris", "Licence", 66],
+  ["B. Harris", "License", 66],
   ["A. Patel", "BLS/ACLS", 79],
   ["H. Larsen", "DEA", 84],
 ];
 
 const ITEMS_BY_CREDENTIAL: Record<SeedProvider["credential"], string[]> = {
-  MD: ["Licence", "DEA", "Board certification", "Malpractice", "BLS/ACLS"],
-  CRNA: ["Licence", "DEA", "Malpractice", "BLS/ACLS"],
-  NP: ["Licence", "DEA", "Malpractice", "BLS/ACLS"],
-  RN: ["Licence", "BLS/ACLS"],
+  MD: ["License", "DEA", "Board certification", "Malpractice", "BLS/ACLS"],
+  CRNA: ["License", "DEA", "Malpractice", "BLS/ACLS"],
+  NP: ["License", "DEA", "Malpractice", "BLS/ACLS"],
+  RN: ["License", "BLS/ACLS"],
 };
 
 /** Open roles: [title, location, specialty, days open, applied, screened, submitted, interview, offer] */

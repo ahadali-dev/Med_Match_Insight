@@ -2,7 +2,7 @@ import type { FormField } from "./edit-cells";
 import { PROVIDER_STATUSES } from "@/lib/types";
 
 export const CREDENTIALS = ["MD", "RN", "CRNA", "NP"];
-export const EXPIRY_ITEMS = ["Licence", "DEA", "Board certification", "Malpractice", "BLS/ACLS"];
+export const EXPIRY_ITEMS = ["License", "DEA", "Board certification", "Malpractice", "BLS/ACLS"];
 export const YES_NO = ["yes", "no"];
 
 export function providerFields(specialties: string[], locations: string[]): FormField[] {

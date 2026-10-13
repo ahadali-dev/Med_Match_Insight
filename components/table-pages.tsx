@@ -332,8 +332,8 @@ export function ExpirationsView() {
   const rows = dash.expirations.filter((e) => e.days <= limit);
   return (
     <>
-      <PageHeader title="Licences & expirations" crumb="Licences & expirations" />
-      <Card title="Licences, DEA, board certifications, malpractice, BLS/ACLS" headingId="exp-table-heading" aside={`${rows.length} ${rows.length === 1 ? "item" : "items"}`}>
+      <PageHeader title="Licenses & expirations" crumb="Licenses & expirations" />
+      <Card title="Licenses, DEA, board certifications, malpractice, BLS/ACLS" headingId="exp-table-heading" aside={`${rows.length} ${rows.length === 1 ? "item" : "items"}`}>
         {canEdit && (
           <div className="mb-4">
             <AddForm
@@ -341,7 +341,7 @@ export function ExpirationsView() {
               title="Add expiration"
               fields={[
                 { key: "provider", label: "Provider", type: "select", options, required: true },
-                { key: "item", label: "Item", type: "combo", options: EXPIRY_ITEMS, required: true, initial: "Licence" },
+                { key: "item", label: "Item", type: "combo", options: EXPIRY_ITEMS, required: true, initial: "License" },
                 { key: "date", label: "Expires", type: "date", required: true },
               ]}
               onSubmit={(v) => actions.add("expirations", { providerId: idOf(v.provider), item: v.item.trim(), expiryDate: v.date })}

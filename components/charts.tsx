@@ -10,7 +10,7 @@ const AMBER = "#9a5b00";
 const ACCENT = "#1a6b4a";
 const TRACK = "#eef2f0";
 
-// Light to dark. `text` is the label colour that keeps 4.5:1 on that segment.
+// Light to dark. `text` is the label color that keeps 4.5:1 on that segment.
 export const STAGE_STYLES = [
   { fill: "#b9ccc3", text: INK },
   { fill: "#86a99a", text: INK },
@@ -86,6 +86,18 @@ export const DaysChart = memo(function DaysChart({ steps }: { steps: Dashboard["
   );
 });
 
+/** Breaks a title into at most two lines of roughly `max` characters (ellipsis only if it still overflows). */
+function wrapTitle(title: string, max: number): string[] {
+  if (title.length <= max) return [title];
+  const words = title.split(" ");
+  let first = "";
+  while (words.length > 1 && (first + " " + words[0]).trim().length <= max) first = (first + " " + words.shift()).trim();
+  if (!first) first = words.shift() as string; // one very long word
+  let second = words.join(" ");
+  if (second.length > max + 4) second = `${second.slice(0, max + 3)}…`;
+  return second ? [first, second] : [first];
+}
+
 interface PipelineDatum {
   key: string;
   title: string;
@@ -113,9 +125,9 @@ export const PipelineChart = memo(function PipelineChart({ roles }: { roles: Das
     return row;
   });
   const totals = new Map(data.map((d) => [d.key, d.total]));
-  const rowHeight = 54;
+  const rowHeight = compact ? 70 : 54;
   const height = Math.max(120, data.length * rowHeight + 8);
-  const axisWidth = compact ? 112 : 200;
+  const axisWidth = compact ? 138 : 200;
 
   return (
     <>
@@ -139,13 +151,19 @@ export const PipelineChart = memo(function PipelineChart({ roles }: { roles: Das
                 const { x, y, payload } = props as { x: number; y: number; payload: { value: string } };
                 const d = data.find((r) => r.key === payload.value);
                 if (!d) return <g />;
+                const lines = wrapTitle(d.title, compact ? 15 : 30);
+                const sub = compact ? `open ${d.sub.split("open ")[1]}` : d.sub;
+                const total = lines.length + 1;
+                const y0 = -((total - 1) * 7.5);
                 return (
                   <g transform={`translate(${Number(x)},${Number(y)})`}>
-                    <text x={-8} y={compact ? -2 : -7} textAnchor="end" fontSize={compact ? 13 : 14} fontWeight={600} fill={INK}>
-                      {compact && d.title.length > 14 ? `${d.title.slice(0, 13)}…` : d.title.length > 26 ? `${d.title.slice(0, 25)}…` : d.title}
-                    </text>
-                    <text x={-8} y={compact ? 12 : 11} textAnchor="end" fontSize={12} fill={d.stalled ? "#b42318" : "#4a5a53"} fontWeight={d.stalled ? 600 : 400}>
-                      {compact ? `open ${d.sub.split("open ")[1]}` : d.sub}
+                    {lines.map((line, li) => (
+                      <text key={line} x={-8} y={y0 + li * 15} dominantBaseline="central" textAnchor="end" fontSize={compact ? 12.5 : 14} fontWeight={600} fill={INK}>
+                        {line}
+                      </text>
+                    ))}
+                    <text x={-8} y={y0 + lines.length * 15} dominantBaseline="central" textAnchor="end" fontSize={12} fill={d.stalled ? "#b42318" : "#4a5a53"} fontWeight={d.stalled ? 600 : 400}>
+                      {sub}
                     </text>
                   </g>
                 );

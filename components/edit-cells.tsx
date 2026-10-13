@@ -155,7 +155,6 @@ export function FormDialog({
           <label key={f.key} className="flex flex-col gap-1 text-xs font-medium text-muted">
             <span>
               {f.label}
-              {f.required && <span aria-hidden="true"> *</span>}
               {f.required && <span className="sr-only"> (required)</span>}
             </span>
             {f.type === "select" ? (
