@@ -22,17 +22,26 @@ interface DashboardContextValue {
   filters: Filters;
   setFilters: (f: Filters) => void;
   showSampleBadge: boolean;
-  sync: {
-    /** Minutes since the last successful read. */
-    ageMin: number;
-    error: string | null;
-    busy: boolean;
-    refreshNow: () => void;
-    announcement: string;
-  };
+}
+
+/** Changes every few seconds, so it lives apart from the data: only the status widgets listen to it. */
+interface SyncContextValue {
+  /** Minutes since the last successful read. */
+  ageMin: number;
+  error: string | null;
+  busy: boolean;
+  refreshNow: () => void;
+  announcement: string;
 }
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
+const SyncContext = createContext<SyncContextValue | null>(null);
+
+export function useSync(): SyncContextValue {
+  const ctx = useContext(SyncContext);
+  if (!ctx) throw new Error("useSync must be used inside <DashboardProvider>");
+  return ctx;
+}
 
 export function useDashboard(): DashboardContextValue {
   const ctx = useContext(DashboardContext);
@@ -129,16 +138,19 @@ export function DashboardProvider({
   const today = todayISO(new Date(snapshot.serverTime));
   const dash = useMemo(() => buildDashboard(snapshot.data, filters, today), [snapshot.data, filters, today]);
 
-  const value: DashboardContextValue = {
-    client,
-    clients,
-    data: snapshot.data,
-    dash,
-    filters,
-    setFilters,
-    showSampleBadge,
-    sync: { ageMin, error, busy, refreshNow: () => void run("refresh"), announcement },
-  };
+  const value = useMemo<DashboardContextValue>(
+    () => ({ client, clients, data: snapshot.data, dash, filters, setFilters, showSampleBadge }),
+    [client, clients, snapshot.data, dash, filters, showSampleBadge],
+  );
+  const refreshNow = useCallback(() => void run("refresh"), [run]);
+  const sync = useMemo<SyncContextValue>(
+    () => ({ ageMin, error, busy, refreshNow, announcement }),
+    [ageMin, error, busy, refreshNow, announcement],
+  );
 
-  return <DashboardContext.Provider value={value}>{children}</DashboardContext.Provider>;
+  return (
+    <DashboardContext.Provider value={value}>
+      <SyncContext.Provider value={sync}>{children}</SyncContext.Provider>
+    </DashboardContext.Provider>
+  );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Bar, BarChart, Cell, LabelList, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import { PIPELINE_STAGES } from "@/lib/types";
 import type { Dashboard } from "@/lib/metrics";
@@ -20,7 +20,7 @@ export const STAGE_STYLES = [
 ] as const;
 
 /** Where the days go: average days per credentialing step. */
-export function DaysChart({ steps }: { steps: Dashboard["stepAverages"] }) {
+export const DaysChart = memo(function DaysChart({ steps }: { steps: Dashboard["stepAverages"] }) {
   const measured = steps.filter((s) => s.avgDays !== null);
   const longest = measured.length ? Math.max(...measured.map((s) => s.avgDays as number)) : 0;
   const data = steps.map((s) => ({ label: s.label, days: s.avgDays ?? 0, known: s.avgDays !== null, longest: s.avgDays === longest && longest > 0 }));
@@ -84,7 +84,7 @@ export function DaysChart({ steps }: { steps: Dashboard["stepAverages"] }) {
 </div>
     </>
   );
-}
+});
 
 interface PipelineDatum {
   key: string;
@@ -96,7 +96,7 @@ interface PipelineDatum {
 }
 
 /** Recruiting pipeline: one stacked bar per open role. */
-export function PipelineChart({ roles }: { roles: Dashboard["roles"] }) {
+export const PipelineChart = memo(function PipelineChart({ roles }: { roles: Dashboard["roles"] }) {
   const [compact, setCompact] = useState(false);
 
   const data: PipelineDatum[] = roles.map((r, i) => {
@@ -215,4 +215,4 @@ export function PipelineChart({ roles }: { roles: Dashboard["roles"] }) {
 </div>
     </>
   );
-}
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useDashboard } from "./dashboard-provider";
+import { useDashboard, useSync } from "./dashboard-provider";
 import { SyncStatus } from "./shell";
 import { SampleBadge, cx } from "./ui";
 
@@ -8,7 +8,8 @@ const SELECT =
   "min-h-11 rounded-md border border-[#c3cec9] bg-white px-3 py-2 text-sm text-ink";
 
 export function PageHeader({ title, crumb }: { title: string; crumb: string }) {
-  const { dash, filters, setFilters, showSampleBadge, sync } = useDashboard();
+  const { dash, filters, setFilters, showSampleBadge } = useDashboard();
+  const sync = useSync();
 
   return (
     <header className="flex flex-wrap items-end justify-between gap-4">

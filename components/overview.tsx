@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useDashboard } from "./dashboard-provider";
 import { DaysChart, PipelineChart, STAGE_STYLES } from "./charts";
 import { PageHeader } from "./page-header";
-import { Card, Chip, DataTable, Mono, ProgressBar, cx } from "./ui";
+import { DataTable } from "./data-table";
+import { Card, Chip, Mono, ProgressBar, cx } from "./ui";
 import { formatDate } from "@/lib/dates";
 import { PIPELINE_STAGES, CREDENTIAL_STEPS } from "@/lib/types";
 import type { AttentionTone, ExpiryBucket } from "@/lib/metrics";
@@ -86,6 +87,7 @@ function CredentialingInProgress() {
     >
       <DataTable
         caption="Providers currently in credentialing"
+        controls={false}
         empty="No providers are in credentialing for this selection."
         rows={dash.inProgress}
         rowKey={(v) => v.provider.id}

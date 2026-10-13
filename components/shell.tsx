@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useId, useState, useSyncExternalStore, type ReactNode } from "react";
-import { formatAge, useDashboard } from "./dashboard-provider";
+import { formatAge, useDashboard, useSync } from "./dashboard-provider";
 import { SampleBadge, cx } from "./ui";
 
 const ICONS = {
@@ -76,7 +76,7 @@ function Logo({ compact = false }: { compact?: boolean }) {
 }
 
 export function SyncStatus({ onDark = false }: { onDark?: boolean }) {
-  const { sync } = useDashboard();
+  const sync = useSync();
   const bad = sync.error !== null;
   return (
     <div
@@ -97,7 +97,7 @@ export function SyncStatus({ onDark = false }: { onDark?: boolean }) {
 }
 
 function SyncDot() {
-  const { sync } = useDashboard();
+  const sync = useSync();
   const bad = sync.error !== null;
   return (
     <span className="flex items-center gap-1.5">
@@ -110,7 +110,8 @@ function SyncDot() {
 }
 
 function DataSourceCard() {
-  const { data, sync } = useDashboard();
+  const { data } = useDashboard();
+  const sync = useSync();
   const { source, warnings } = data;
   return (
     <section aria-labelledby="source-heading" className="mt-auto flex flex-col gap-2 rounded-[10px] border border-sidebar-line bg-sidebar-raised p-3.5">
@@ -164,8 +165,17 @@ function DataSourceCard() {
   );
 }
 
+function Announcer() {
+  const { announcement } = useSync();
+  return (
+    <div role="status" aria-live="polite" className="sr-only">
+      {announcement}
+    </div>
+  );
+}
+
 export function Shell({ children }: { children: ReactNode }) {
-  const { client, clients, data, dash, showSampleBadge, sync } = useDashboard();
+  const { client, clients, data, dash, showSampleBadge } = useDashboard();
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -316,9 +326,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </footer>
       </div>
 
-      <div role="status" aria-live="polite" className="sr-only">
-        {sync.announcement}
-      </div>
+      <Announcer />
     </div>
   );
 }
