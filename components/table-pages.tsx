@@ -96,14 +96,18 @@ function Board() {
     actions.move(providerId, target, target === 5 ? `${name} finished credentialing and moved to Onboarding.` : `${name} moved to ${STEP_NAMES[target - 1]}.`);
   };
 
-  const columns = canEdit ? 5 : 4;
+  // Everyone whose four steps are all dated lives in Finished, newest first.
+  const finished = dash.providers
+    .filter((v) => v.completedDate)
+    .sort((a, b) => (b.completedDate as string).localeCompare(a.completedDate as string) || a.name.localeCompare(b.name));
+  const columns = 5;
   return (
     <>
       {canEdit && <p className="mb-3 text-sm text-muted">Drag a card to another column to move that provider. Dragging right completes the steps in between; dragging left reopens a step.</p>}
-      <div className={cx("grid gap-3 md:grid-cols-2", columns === 5 ? "xl:grid-cols-5" : "xl:grid-cols-4")}>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         {Array.from({ length: columns }, (_, i) => i + 1).map((step) => {
           const finishedCol = step === 5;
-          const cards = finishedCol ? [] : dash.inProgress.filter((v) => v.currentStep === step);
+          const cards = finishedCol ? finished : dash.inProgress.filter((v) => v.currentStep === step);
           const active = dragId !== null && overStep === step;
           return (
             <section
@@ -123,8 +127,8 @@ function Board() {
                 const id = e.dataTransfer.getData("text/plain") || dragId;
                 setOverStep(null);
                 setDragId(null);
-                const v = dash.inProgress.find((x) => x.provider.id === id);
-                if (v) moveTo(v.provider.id, v.name, v.currentStep, step);
+                const v = dash.providers.find((x) => x.provider.id === id);
+                if (v) moveTo(v.provider.id, v.name, v.currentStep ?? 5, step);
               }}
               className={cx(
                 "flex min-h-40 min-w-0 flex-col gap-2.5 rounded-xl p-3 transition-colors",
@@ -133,15 +137,17 @@ function Board() {
             >
               <h3 className="flex items-center justify-between text-sm font-semibold">
                 <span>{finishedCol ? "Finished" : `${step}. ${CREDENTIAL_STEPS[step - 1]}`}</span>
-                {!finishedCol && <span className="rounded-full bg-white px-2 py-0.5 font-mono text-xs text-muted">{cards.length}</span>}
+                <span className="rounded-full bg-white px-2 py-0.5 font-mono text-xs text-muted">{cards.length}</span>
               </h3>
-              {finishedCol ? (
-                <p className="rounded-lg border border-dashed border-line px-3 py-6 text-center text-xs text-muted">Drop here when credentialing is complete. The provider moves to Onboarding.</p>
-              ) : cards.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-line px-3 py-6 text-center text-xs text-muted">{canEdit ? "Drop a card here" : "Nobody at this step"}</p>
+              {cards.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-line px-3 py-6 text-center text-xs text-muted">
+                  {finishedCol ? "Finished files stay here. Drop a card to complete credentialing; the provider moves to Onboarding." : canEdit ? "Drop a card here" : "Nobody at this step"}
+                </p>
               ) : (
-                cards.map((v) => {
-                  const over = (v.daysOpen ?? 0) > dash.targetDays;
+                <div className={cx("flex flex-col gap-2.5", finishedCol && "max-h-[34rem] overflow-y-auto pr-0.5")}>
+                {cards.map((v) => {
+                  const done = Boolean(v.completedDate);
+                  const over = done ? (v.totalDays ?? 0) > dash.targetDays : (v.daysOpen ?? 0) > dash.targetDays;
                   const dragging = dragId === v.provider.id;
                   return (
                     <article
@@ -181,18 +187,20 @@ function Board() {
                         )}
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                        <Mono className={over ? "text-red" : "text-ink"}>{v.daysOpen ?? "–"} days</Mono>
+                        <Mono className={over ? "text-red" : "text-ink"}>{done ? v.totalDays : (v.daysOpen ?? "–")} days</Mono>
                         {over && <Chip tone="bad">Over target</Chip>}
-                        {v.currentRow?.waitingOnProvider && <Chip tone="warn">Waiting on provider</Chip>}
+                        {done && <Chip tone={v.provider.status === "Ready" ? "good" : "warn"}>{v.provider.status}</Chip>}
+                        {!done && v.currentRow?.waitingOnProvider && <Chip tone="warn">Waiting on provider</Chip>}
                       </div>
-                      {v.currentRow?.waitingOn && <p className="text-xs text-body">Waiting on {v.currentRow.waitingOn}</p>}
+                      {done && v.completedDate && <p className="text-xs text-muted">Finished {formatDate(v.completedDate, dash.today)}</p>}
+                      {!done && v.currentRow?.waitingOn && <p className="text-xs text-body">Waiting on {v.currentRow.waitingOn}</p>}
                       {canEdit && (
                         <label className="flex flex-col gap-1 text-[11px] font-medium text-muted">
                           Move to
                           <select
                             aria-label={`Move ${v.name} to`}
                             value={String(step)}
-                            onChange={(e) => moveTo(v.provider.id, v.name, v.currentStep, Number(e.target.value))}
+                            onChange={(e) => moveTo(v.provider.id, v.name, v.currentStep ?? 5, Number(e.target.value))}
                             className="min-h-9 rounded-md border border-[#c3cec9] bg-white px-2 py-1 text-xs text-ink"
                           >
                             {STEP_NAMES.map((n, idx) => (
@@ -205,7 +213,8 @@ function Board() {
                       )}
                     </article>
                   );
-                })
+                })}
+                </div>
               )}
             </section>
           );
