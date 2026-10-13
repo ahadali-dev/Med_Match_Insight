@@ -46,8 +46,12 @@ export function parseCsv(text: string): string[][] {
 /** Overridable so tests can point at a local stand-in; defaults to Google. */
 const DOCS_BASE = () => process.env.GOOGLE_DOCS_BASE ?? "https://docs.google.com";
 
+/**
+ * `headers=1` tells Google that row 1 is always the header row. Without it Google guesses, and a tab
+ * where every column is text (like a Providers tab) gets its header row treated as data.
+ */
 async function fetchTab(id: string, tab: string): Promise<string[][]> {
-  const url = `${DOCS_BASE()}/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
+  const url = `${DOCS_BASE()}/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&headers=1&sheet=${encodeURIComponent(tab)}`;
   let res: Response;
   try {
     res = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(15_000), headers: { Accept: "text/csv" } });

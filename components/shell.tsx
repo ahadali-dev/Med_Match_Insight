@@ -182,8 +182,8 @@ function DataSourceCard() {
             </p>
           )}
           {warnings.length > 0 && (
-            <details className="text-xs text-sidebar-text">
-              <summary className="cursor-pointer font-semibold text-white">
+            <details open className="text-xs text-sidebar-text">
+              <summary className="cursor-pointer font-semibold text-[#f5c26b]">
                 {warnings.length} sheet {warnings.length === 1 ? "note" : "notes"}
               </summary>
               <ul className="mt-1.5 list-disc space-y-1 pl-4">
