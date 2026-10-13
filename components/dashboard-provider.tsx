@@ -28,7 +28,7 @@ import {
   updateRecord,
   type TableKind,
 } from "@/lib/mutations";
-import { sourceCookie, type SourceMode } from "@/lib/source";
+import { sheetCookie, sourceCookie, type SourceMode } from "@/lib/source";
 import type { Provider, SheetData } from "@/lib/types";
 
 /** The sheet is re-read in the background this often (live mode). */
@@ -52,6 +52,8 @@ interface DashboardContextValue {
   liveAvailable: boolean;
   /** Live needs a sheetId in CLIENTS; says why Live is unavailable. */
   liveHint: string;
+  /** The live sheet was connected with a pasted link (not server configuration). */
+  linkedSheet: boolean;
 }
 
 /** Changes every few seconds, so it lives apart from the data: only the status widgets listen to it. */
@@ -92,6 +94,9 @@ interface ActionsContextValue {
   resetDemo: () => void;
   undo: () => void;
   setSource: (mode: SourceMode) => void;
+  /** Connects a link-shared Google Sheet by ID and switches to live data. */
+  connectSheet: (sheetId: string) => void;
+  disconnectSheet: () => void;
 }
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
@@ -123,6 +128,7 @@ export function DashboardProvider({
   mode,
   liveAvailable,
   liveHint,
+  linkedSheet,
   children,
 }: {
   client: ClientSummary;
@@ -133,6 +139,7 @@ export function DashboardProvider({
   mode: SourceMode;
   liveAvailable: boolean;
   liveHint: string;
+  linkedSheet: boolean;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -270,6 +277,17 @@ export function DashboardProvider({
         saveDemo(clientId, prev);
         pushToast("Change undone.", false);
       },
+      connectSheet: (sheetId) => {
+        const year = "max-age=31536000; path=/; SameSite=Lax";
+        document.cookie = `${sheetCookie(clientId)}=${encodeURIComponent(sheetId)}; ${year}`;
+        document.cookie = `${sourceCookie(clientId)}=live; ${year}`;
+        router.refresh();
+      },
+      disconnectSheet: () => {
+        document.cookie = `${sheetCookie(clientId)}=; max-age=0; path=/; SameSite=Lax`;
+        document.cookie = `${sourceCookie(clientId)}=demo; max-age=31536000; path=/; SameSite=Lax`;
+        router.refresh();
+      },
       setSource: (m) => {
         document.cookie = `${sourceCookie(clientId)}=${m}; path=/; max-age=31536000; SameSite=Lax`;
         router.refresh();
@@ -279,8 +297,8 @@ export function DashboardProvider({
   );
 
   const dashboardValue = useMemo<DashboardContextValue>(
-    () => ({ client, clients, data, dash, filters, setFilters, showSampleBadge, mode, liveAvailable, liveHint }),
-    [client, clients, data, dash, filters, showSampleBadge, mode, liveAvailable, liveHint],
+    () => ({ client, clients, data, dash, filters, setFilters, showSampleBadge, mode, liveAvailable, liveHint, linkedSheet }),
+    [client, clients, data, dash, filters, showSampleBadge, mode, liveAvailable, liveHint, linkedSheet],
   );
   const refreshNow = useCallback(() => void run("refresh"), [run]);
   const sync = useMemo<SyncContextValue>(

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { formatAge, useActions, useDashboard, useSync, useUi } from "./dashboard-provider";
+import { ConnectSheetDialog } from "./connect-sheet";
 import { Chip, SampleBadge, cx } from "./ui";
 import { displayName, type Dashboard } from "@/lib/metrics";
 
@@ -113,9 +114,10 @@ function SyncDot() {
 }
 
 function DataSourceCard() {
-  const { data, mode, liveAvailable, liveHint } = useDashboard();
+  const { data, mode, liveAvailable, linkedSheet } = useDashboard();
   const sync = useSync();
   const actions = useActions();
+  const [connectOpen, setConnectOpen] = useState(false);
   const { source, warnings } = data;
   const seg = (active: boolean) =>
     cx(
@@ -134,15 +136,18 @@ function DataSourceCard() {
         <button
           type="button"
           aria-pressed={mode === "live"}
-          disabled={!liveAvailable}
-          title={liveAvailable ? undefined : liveHint}
-          onClick={() => mode !== "live" && actions.setSource("live")}
+          onClick={() => (liveAvailable ? mode !== "live" && actions.setSource("live") : setConnectOpen(true))}
           className={seg(mode === "live")}
         >
           Google Sheet
         </button>
       </div>
-      {!liveAvailable && <p className="text-xs leading-normal text-sidebar-muted">{liveHint}</p>}
+      {!liveAvailable && (
+        <button type="button" onClick={() => setConnectOpen(true)} className="min-h-9 rounded-md bg-accent px-3 text-xs font-semibold text-white hover:bg-accent-dark">
+          Connect a Google Sheet
+        </button>
+      )}
+      {connectOpen && <ConnectSheetDialog onClose={() => setConnectOpen(false)} />}
 
       <div className="flex items-center gap-2 text-sm font-semibold text-white">
         <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7fd1a8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
@@ -188,6 +193,11 @@ function DataSourceCard() {
                 {warnings.length > 8 && <li>and {warnings.length - 8} more</li>}
               </ul>
             </details>
+          )}
+          {linkedSheet && (
+            <button type="button" onClick={() => actions.disconnectSheet()} className="min-h-9 rounded-md border border-sidebar-line px-3 text-xs font-semibold text-white hover:bg-sidebar-active">
+              Disconnect sheet
+            </button>
           )}
           {source.url && (
             <a href={source.url} target="_blank" rel="noopener noreferrer" className="flex min-h-8 items-center text-[13px] font-semibold text-white underline hover:text-white">
@@ -514,7 +524,7 @@ export function Shell({ children }: { children: ReactNode }) {
           ) : (
             <div className="flex flex-col gap-1.5 text-xs text-sidebar-muted">
               Client
-              <div className="flex min-h-11 items-center rounded-md border border-sidebar-line bg-sidebar-raised px-3 text-sm font-medium text-white">{client.name}</div>
+              <div className="flex min-h-11 items-center rounded-md border border-sidebar-line bg-sidebar-raised px-3 text-sm font-medium text-white">{data.config.clientName}</div>
             </div>
           )}
         </div>

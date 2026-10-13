@@ -1,3 +1,5 @@
+export const SHEET_ID_PATTERN = /^[a-zA-Z0-9_-]{20,}$/;
+
 /** Pulls the sheet ID out of a full Google Sheets URL, or accepts the bare ID. */
 export function extractSheetId(input: string): string | null {
   const text = input.trim();

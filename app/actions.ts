@@ -1,9 +1,12 @@
 "use server";
 
 import { updateTag } from "next/cache";
+import { cookies } from "next/headers";
 import { findClient } from "@/lib/clients";
 import { describeError } from "@/lib/errors";
 import { getSheetData, sheetTag } from "@/lib/get-sheet-data";
+import { SHEET_ID_PATTERN } from "@/lib/sheet-id";
+import { sheetCookie } from "@/lib/source";
 import type { SheetData } from "@/lib/types";
 
 export type SyncResult =
@@ -14,7 +17,8 @@ async function load(clientId: string): Promise<SyncResult> {
   try {
     // Only sheets listed in the server's own config can be read, never an ID sent by the browser.
     if (!findClient(clientId)) return { ok: false, error: "Unknown client." };
-    const result = await getSheetData(clientId);
+    const fromCookie = (await cookies()).get(sheetCookie(clientId))?.value ?? "";
+    const result = await getSheetData(clientId, SHEET_ID_PATTERN.test(fromCookie) ? fromCookie : "");
     if (!result.ok) return { ok: false, error: result.message };
     return { ok: true, data: result.data, serverTime: new Date().toISOString() };
   } catch (err) {
