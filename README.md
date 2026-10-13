@@ -106,13 +106,18 @@ Environment variables are read on the server only; none are exposed to the brows
 ## Project layout
 
 ```
-app/[client]/…        one route per nav page; layout reads the sheet and wraps everything in the provider
-app/actions.ts        server actions for the 5-minute poll and "Refresh now"
-lib/google-sheets.ts  Sheets API client (service account, read-only scope)
-lib/parse-sheet.ts    rows -> typed data, with warnings for bad rows
-lib/metrics.ts        every dashboard number
-lib/seed-data.ts      fake data used by `npm run seed` and the local sample
-components/…          shell (sidebar / mobile menu), overview, charts (Recharts), table pages
+app/[client]/…               one route per nav page, plus providers/[id] (full provider profile)
+app/actions.ts               server actions for the 5-minute poll and "Refresh now" (live mode)
+lib/google-sheets.ts         Sheets API client (service account, read-only scope)
+lib/parse-sheet.ts           rows -> typed data, with warnings for bad rows
+lib/metrics.ts               every dashboard number
+lib/mutations.ts             edits for the demo workspace (add / update / delete / move credentialing step)
+lib/demo-store.ts            demo edits saved in the browser (localStorage)
+lib/seed-data.ts             fake data used by `npm run seed` and the built-in demo workspace
+components/shell.tsx         sidebar, top bar (search, notifications), toasts
+components/data-table.tsx    search, filters, sorting, pagination, CSV export, row action menu
+components/table-pages.tsx   the table pages and the credentialing board (drag and drop)
+components/provider-detail.tsx   provider profile page
 ```
 
 Built with Next.js 16 and Cache Components; see `AGENTS.md` for the note about this version's differences.
