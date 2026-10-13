@@ -46,36 +46,72 @@ export function updateConfig(data: SheetData, patch: Partial<SheetData["config"]
   return { ...data, config: { ...data.config, ...patch } };
 }
 
-/**
- * Finishes the provider's current credentialing step today and opens the next one.
- * After step 4 the provider moves to Onboarding.
- */
-export function advanceCredentialing(data: SheetData, providerId: string, today: ISODate): SheetData {
-  const rows = data.credentialing.filter((r) => r.providerId === providerId);
-  const done = new Set(rows.filter((r) => r.completedDate).map((r) => r.step));
-  const step = [1, 2, 3, 4].find((s) => !done.has(s));
-  if (!step) return data;
+function completeStep(data: SheetData, providerId: string, step: number, today: ISODate): SheetData {
+  const row = data.credentialing.find((r) => r.providerId === providerId && r.step === step);
+  if (row) {
+    return updateRecord(data, "credentialing", row.uid, {
+      completedDate: today < row.startedDate ? row.startedDate : today,
+      waitingOn: "",
+      waitingOnProvider: false,
+    });
+  }
+  const fresh: CredentialingRow = { uid: newUid("credentialing"), providerId, step, startedDate: today, completedDate: today, waitingOn: "", waitingOnProvider: false };
+  return addRecord(data, "credentialing", fresh);
+}
 
+/** Step the file is on: first step without a completed date, or 5 when all four are done. */
+export function currentStepOf(data: SheetData, providerId: string): number {
+  const done = new Set(data.credentialing.filter((r) => r.providerId === providerId && r.completedDate).map((r) => r.step));
+  return [1, 2, 3, 4].find((s) => !done.has(s)) ?? 5;
+}
+
+/**
+ * Moves a provider's credentialing file to `target` (1 to 4 = that step, 5 = finished).
+ * Moving forward completes the steps in between today. Moving back reopens the target step and
+ * drops the later steps. Finishing moves the provider to Onboarding.
+ */
+export function moveCredentialing(data: SheetData, providerId: string, target: number, today: ISODate): SheetData {
+  const current = currentStepOf(data, providerId);
+  if (target === current || target < 1 || target > 5) return data;
   let next = data;
-  const open = rows.find((r) => r.step === step);
-  if (open) {
-    next = updateRecord(next, "credentialing", open.uid, { completedDate: today < open.startedDate ? open.startedDate : today, waitingOn: "", waitingOnProvider: false });
-  } else {
-    const row: CredentialingRow = { uid: newUid("credentialing"), providerId, step, startedDate: today, completedDate: today, waitingOn: "", waitingOnProvider: false };
-    next = addRecord(next, "credentialing", row);
-  }
-  if (step < 4) {
-    const row: CredentialingRow = { uid: newUid("credentialing"), providerId, step: step + 1, startedDate: today, completedDate: null, waitingOn: "", waitingOnProvider: false };
-    next = addRecord(next, "credentialing", row);
-  } else {
-    const p = next.providers.find((x) => x.id === providerId);
-    if (p) next = updateRecord(next, "providers", p.uid, { status: "Onboarding" });
-    if (!next.onboarding.some((o) => o.providerId === providerId)) {
-      const o: OnboardingRow = { uid: newUid("onboarding"), providerId, startDate: addDays(today, 14), stepsDone: 0, stepsTotal: 8, nextStep: "Badge and EHR login" };
-      next = addRecord(next, "onboarding", o);
+  const provider = () => next.providers.find((x) => x.id === providerId);
+
+  if (target > current) {
+    for (let s = current; s < target; s++) next = completeStep(next, providerId, s, today);
+    if (target <= 4) {
+      const open: CredentialingRow = { uid: newUid("credentialing"), providerId, step: target, startedDate: today, completedDate: null, waitingOn: "", waitingOnProvider: false };
+      next = addRecord(next, "credentialing", open);
+      const p = provider();
+      if (p && p.status !== "In credentialing") next = updateRecord(next, "providers", p.uid, { status: "In credentialing" });
+    } else {
+      const p = provider();
+      if (p) next = updateRecord(next, "providers", p.uid, { status: "Onboarding" });
+      if (!next.onboarding.some((o) => o.providerId === providerId)) {
+        const o: OnboardingRow = { uid: newUid("onboarding"), providerId, startDate: addDays(today, 14), stepsDone: 0, stepsTotal: 8, nextStep: "Badge and EHR login" };
+        next = addRecord(next, "onboarding", o);
+      }
     }
+    return next;
   }
+
+  // Backward: reopen the target step and forget the steps after it.
+  next = { ...next, credentialing: next.credentialing.filter((r) => !(r.providerId === providerId && r.step > target)) };
+  const row = next.credentialing.find((r) => r.providerId === providerId && r.step === target);
+  if (row) {
+    next = updateRecord(next, "credentialing", row.uid, { completedDate: null, waitingOn: "", waitingOnProvider: false });
+  } else {
+    const open: CredentialingRow = { uid: newUid("credentialing"), providerId, step: target, startedDate: today, completedDate: null, waitingOn: "", waitingOnProvider: false };
+    next = addRecord(next, "credentialing", open);
+  }
+  const p = provider();
+  if (p && p.status !== "In credentialing") next = updateRecord(next, "providers", p.uid, { status: "In credentialing" });
   return next;
+}
+
+/** Finishes the provider's current credentialing step today and opens the next one. */
+export function advanceCredentialing(data: SheetData, providerId: string, today: ISODate): SheetData {
+  const current = currentStepOf(data, providerId);
+  return current >= 5 ? data : moveCredentialing(data, providerId, current + 1, today);
 }
 
 /** Puts a provider into credentialing at step 1 (used when adding a provider). */

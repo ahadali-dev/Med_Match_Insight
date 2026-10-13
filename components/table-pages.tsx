@@ -82,59 +82,136 @@ export function ProvidersView() {
   );
 }
 
+const STEP_NAMES = [...CREDENTIAL_STEPS, "Finished"];
+
 function Board() {
   const { dash } = useDashboard();
   const { canEdit } = useUi();
   const actions = useActions();
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overStep, setOverStep] = useState<number | null>(null);
+
+  const moveTo = (providerId: string, name: string, from: number | null, target: number) => {
+    if (from === target) return;
+    actions.move(providerId, target, target === 5 ? `${name} finished credentialing and moved to Onboarding.` : `${name} moved to ${STEP_NAMES[target - 1]}.`);
+  };
+
+  const columns = canEdit ? 5 : 4;
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      {CREDENTIAL_STEPS.map((label, i) => {
-        const step = i + 1;
-        const cards = dash.inProgress.filter((v) => v.currentStep === step);
-        return (
-          <section key={label} aria-label={`Step ${step}: ${label}`} className="flex min-w-0 flex-col gap-2.5 rounded-xl bg-page p-3">
-            <h3 className="flex items-center justify-between text-sm font-semibold">
-              <span>
-                {step}. {label}
-              </span>
-              <span className="rounded-full bg-white px-2 py-0.5 font-mono text-xs text-muted">{cards.length}</span>
-            </h3>
-            {cards.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-line px-3 py-6 text-center text-xs text-muted">Nobody at this step</p>
-            ) : (
-              cards.map((v) => {
-                const over = (v.daysOpen ?? 0) > dash.targetDays;
-                return (
-                  <article key={v.provider.uid} className="flex flex-col gap-2 rounded-lg border border-line bg-white p-3 shadow-sm">
-                    <div>
-                      <ProviderLink id={v.provider.id}>{v.name}</ProviderLink>
-                      <p className="text-xs text-muted">
-                        {v.provider.specialty} · {v.provider.location}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                      <Mono className={over ? "text-red" : "text-ink"}>{v.daysOpen ?? "–"} days</Mono>
-                      {over && <Chip tone="bad">Over target</Chip>}
-                      {v.currentRow?.waitingOnProvider && <Chip tone="warn">Waiting on provider</Chip>}
-                    </div>
-                    {v.currentRow?.waitingOn && <p className="text-xs text-body">Waiting on {v.currentRow.waitingOn}</p>}
-                    {canEdit && (
-                      <button
-                        type="button"
-                        onClick={() => actions.advance(v.provider.id)}
-                        className="min-h-9 rounded-md border border-accent px-3 text-xs font-semibold text-accent hover:bg-info-bg"
-                      >
-                        {step < 4 ? "Complete step · move on" : "Complete credentialing"}
-                      </button>
-                    )}
-                  </article>
-                );
-              })
-            )}
-          </section>
-        );
-      })}
-    </div>
+    <>
+      {canEdit && <p className="mb-3 text-sm text-muted">Drag a card to another column to move that provider. Dragging right completes the steps in between; dragging left reopens a step.</p>}
+      <div className={cx("grid gap-3 md:grid-cols-2", columns === 5 ? "xl:grid-cols-5" : "xl:grid-cols-4")}>
+        {Array.from({ length: columns }, (_, i) => i + 1).map((step) => {
+          const finishedCol = step === 5;
+          const cards = finishedCol ? [] : dash.inProgress.filter((v) => v.currentStep === step);
+          const active = dragId !== null && overStep === step;
+          return (
+            <section
+              key={step}
+              aria-label={finishedCol ? "Finished" : `Step ${step}: ${CREDENTIAL_STEPS[step - 1]}`}
+              onDragOver={(e) => {
+                if (!canEdit || !dragId) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                if (overStep !== step) setOverStep(step);
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) setOverStep((s) => (s === step ? null : s));
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const id = e.dataTransfer.getData("text/plain") || dragId;
+                setOverStep(null);
+                setDragId(null);
+                const v = dash.inProgress.find((x) => x.provider.id === id);
+                if (v) moveTo(v.provider.id, v.name, v.currentStep, step);
+              }}
+              className={cx(
+                "flex min-h-40 min-w-0 flex-col gap-2.5 rounded-xl p-3 transition-colors",
+                active ? "bg-info-bg outline-2 outline-dashed outline-accent" : "bg-page",
+              )}
+            >
+              <h3 className="flex items-center justify-between text-sm font-semibold">
+                <span>{finishedCol ? "Finished" : `${step}. ${CREDENTIAL_STEPS[step - 1]}`}</span>
+                {!finishedCol && <span className="rounded-full bg-white px-2 py-0.5 font-mono text-xs text-muted">{cards.length}</span>}
+              </h3>
+              {finishedCol ? (
+                <p className="rounded-lg border border-dashed border-line px-3 py-6 text-center text-xs text-muted">Drop here when credentialing is complete. The provider moves to Onboarding.</p>
+              ) : cards.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-line px-3 py-6 text-center text-xs text-muted">{canEdit ? "Drop a card here" : "Nobody at this step"}</p>
+              ) : (
+                cards.map((v) => {
+                  const over = (v.daysOpen ?? 0) > dash.targetDays;
+                  const dragging = dragId === v.provider.id;
+                  return (
+                    <article
+                      key={v.provider.uid}
+                      draggable={canEdit}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData("text/plain", v.provider.id);
+                        e.dataTransfer.effectAllowed = "move";
+                        setDragId(v.provider.id);
+                      }}
+                      onDragEnd={() => {
+                        setDragId(null);
+                        setOverStep(null);
+                      }}
+                      className={cx(
+                        "flex flex-col gap-2 rounded-lg border border-line bg-white p-3 shadow-sm",
+                        canEdit && "cursor-grab active:cursor-grabbing",
+                        dragging && "opacity-40",
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <ProviderLink id={v.provider.id}>{v.name}</ProviderLink>
+                          <p className="text-xs text-muted">
+                            {v.provider.specialty} · {v.provider.location}
+                          </p>
+                        </div>
+                        {canEdit && (
+                          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="#7b8d85" className="mt-0.5 shrink-0">
+                            <circle cx="9" cy="6" r="1.6" />
+                            <circle cx="15" cy="6" r="1.6" />
+                            <circle cx="9" cy="12" r="1.6" />
+                            <circle cx="15" cy="12" r="1.6" />
+                            <circle cx="9" cy="18" r="1.6" />
+                            <circle cx="15" cy="18" r="1.6" />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                        <Mono className={over ? "text-red" : "text-ink"}>{v.daysOpen ?? "–"} days</Mono>
+                        {over && <Chip tone="bad">Over target</Chip>}
+                        {v.currentRow?.waitingOnProvider && <Chip tone="warn">Waiting on provider</Chip>}
+                      </div>
+                      {v.currentRow?.waitingOn && <p className="text-xs text-body">Waiting on {v.currentRow.waitingOn}</p>}
+                      {canEdit && (
+                        <label className="flex flex-col gap-1 text-[11px] font-medium text-muted">
+                          Move to
+                          <select
+                            aria-label={`Move ${v.name} to`}
+                            value={String(step)}
+                            onChange={(e) => moveTo(v.provider.id, v.name, v.currentStep, Number(e.target.value))}
+                            className="min-h-9 rounded-md border border-[#c3cec9] bg-white px-2 py-1 text-xs text-ink"
+                          >
+                            {STEP_NAMES.map((n, idx) => (
+                              <option key={n} value={idx + 1}>
+                                {idx < 4 ? `${idx + 1}. ${n}` : n}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
+                    </article>
+                  );
+                })
+              )}
+            </section>
+          );
+        })}
+      </div>
+    </>
   );
 }
 

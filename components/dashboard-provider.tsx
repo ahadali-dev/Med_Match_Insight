@@ -19,6 +19,7 @@ import { buildDashboard, NO_FILTERS, type Dashboard, type Filters } from "@/lib/
 import {
   addRecord,
   advanceCredentialing,
+  moveCredentialing,
   deleteRecord,
   newUid,
   nextProviderId,
@@ -85,6 +86,8 @@ interface ActionsContextValue {
   addProvider: (p: Omit<Provider, "uid" | "id" | "status">, startCredentialing: boolean) => void;
   remove: (kind: TableKind, uid: string, message?: string) => void;
   advance: (providerId: string) => void;
+  /** Moves a credentialing file to step 1-4, or 5 = finished. */
+  move: (providerId: string, target: number, label: string) => void;
   setConfig: (patch: Partial<SheetData["config"]>) => void;
   resetDemo: () => void;
   undo: () => void;
@@ -253,6 +256,7 @@ export function DashboardProvider({
         }, `${p.name} added.`),
       remove: (kind, uid, message) => mutate((d) => deleteRecord(d, kind, uid), message ?? "Row deleted."),
       advance: (providerId) => mutate((d) => advanceCredentialing(d, providerId, today), "Credentialing step completed."),
+      move: (providerId, target, label) => mutate((d) => moveCredentialing(d, providerId, target, today), label),
       setConfig: (patch) => mutate((d) => updateConfig(d, patch), "Settings saved."),
       resetDemo: () => {
         history.current = [];
