@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { ConnectionProblem } from "@/components/connection-problem";
@@ -24,6 +25,8 @@ function Loading() {
 
 async function ClientShell({ params, children }: { params: LayoutProps<"/[client]">["params"]; children: ReactNode }) {
   const { client: clientId } = await params;
+  // Everything below depends on the current time and the visitor's cookie, so render at request time.
+  await connection();
 
   let clients;
   try {
