@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useActions, useDashboard, useUi } from "./dashboard-provider";
 import { DataTable } from "./data-table";
-import { AddForm } from "./edit-cells";
+import { AddForm, type FormField } from "./edit-cells";
 import { PageHeader } from "./page-header";
 import { ProviderLink } from "./provider-link";
 import { Card, Chip, Mono, ProgressBar, cx } from "./ui";
@@ -17,12 +17,6 @@ const YES_NO = ["yes", "no"];
 const checkbox = "size-5 accent-[#1a6b4a]";
 
 const toInt = (v: string) => Math.max(0, Math.round(Number(v) || 0));
-const EditHint = () => (
-  <p className="mb-3 rounded-lg bg-info-bg px-3 py-2 text-sm text-info-fg">
-    Editing is on. Change any cell, add rows, or delete rows. Every change updates the whole dashboard and can be undone.
-  </p>
-);
-
 function useProviderOptions() {
   const { data } = useDashboard();
   const options = data.providers.map((p) => `${p.id} · ${displayName(p)}`);
@@ -31,80 +25,62 @@ function useProviderOptions() {
 
 export function ProvidersView() {
   const { dash } = useDashboard();
-  const { canEdit } = useUi();
+  const { canEdit, openProvider } = useUi();
   const actions = useActions();
   const rows = [...dash.providers].sort((a, b) => a.provider.name.localeCompare(b.provider.name));
+  const fields: FormField[] = [
+    { key: "name", label: "Name (e.g. J. Smith)", type: "text", required: true },
+    { key: "credential", label: "Credential", type: "select", options: CREDENTIALS },
+    { key: "specialty", label: "Specialty", type: "combo", options: dash.specialties, required: true },
+    { key: "location", label: "Location", type: "combo", options: dash.locations, required: true },
+    { key: "status", label: "Status", type: "select", options: [...PROVIDER_STATUSES] },
+  ];
   return (
     <>
       <PageHeader title="Providers" crumb="Providers" />
       <Card title="All providers" headingId="providers-heading" aside={`${rows.length} ${rows.length === 1 ? "provider" : "providers"}`}>
         {canEdit && (
-          <>
-            <EditHint />
-            <div className="mb-4">
-              <AddForm
-                buttonLabel="Add provider"
-                title="Add provider"
-                fields={[
-                  { key: "name", label: "Name (e.g. J. Smith)", type: "text", required: true },
-                  { key: "credential", label: "Credential", type: "select", options: CREDENTIALS },
-                  { key: "specialty", label: "Specialty", type: "combo", options: dash.specialties, required: true },
-                  { key: "location", label: "Location", type: "combo", options: dash.locations, required: true },
-                  { key: "start", label: "Start credentialing now?", type: "select", options: YES_NO, initial: "yes" },
-                ]}
-                onSubmit={(v) =>
-                  actions.addProvider({ name: v.name.trim(), credential: v.credential, specialty: v.specialty.trim(), location: v.location.trim() }, v.start === "yes")
-                }
-              />
-            </div>
-          </>
+          <div className="mb-4">
+            <AddForm
+              buttonLabel="Add provider"
+              title="Add provider"
+              fields={[...fields.filter((f) => f.key !== "status"), { key: "start", label: "Start credentialing now?", type: "select", options: YES_NO, initial: "yes" }]}
+              onSubmit={(v) => actions.addProvider({ name: v.name.trim(), credential: v.credential, specialty: v.specialty.trim(), location: v.location.trim() }, v.start === "yes")}
+            />
+          </div>
         )}
         <DataTable
           caption="Providers"
           empty="No providers match these filters."
           rows={rows}
           rowKey={(v) => v.provider.uid}
-          editing={canEdit}
           rowLabel={(v) => v.name}
-          onDelete={(v) => actions.remove("providers", v.provider.uid, `${v.name} deleted.`)}
+          minWidth={760}
+          actions={{
+            details: (v) => openProvider(v.provider.id),
+            edit: {
+              fields,
+              values: (v) => ({ name: v.provider.name, credential: v.provider.credential, specialty: v.provider.specialty, location: v.provider.location, status: v.provider.status }),
+              submit: (v, x) =>
+                actions.update("providers", v.provider.uid, { name: x.name.trim(), credential: x.credential, specialty: x.specialty.trim(), location: x.location.trim(), status: x.status as (typeof PROVIDER_STATUSES)[number] }, "Provider updated."),
+            },
+            remove: (v) => actions.remove("providers", v.provider.uid, `${v.name} deleted.`),
+          }}
           columns={[
-            {
-              header: "Name",
-              value: (v) => v.provider.name,
-              cell: (v) => <ProviderLink id={v.provider.id}>{v.name}</ProviderLink>,
-              edit: { type: "text", get: (v) => v.provider.name, set: (v, x) => actions.update("providers", v.provider.uid, { name: x }) },
-            },
-            {
-              header: "Credential",
-              value: (v) => v.provider.credential,
-              filter: true,
-              cell: (v) => v.provider.credential,
-              edit: { type: "select", options: CREDENTIALS, get: (v) => v.provider.credential, set: (v, x) => actions.update("providers", v.provider.uid, { credential: x }) },
-            },
-            {
-              header: "Specialty",
-              value: (v) => v.provider.specialty,
-              filter: true,
-              cell: (v) => v.provider.specialty,
-              edit: { type: "combo", options: dash.specialties, get: (v) => v.provider.specialty, set: (v, x) => actions.update("providers", v.provider.uid, { specialty: x }) },
-            },
-            {
-              header: "Location",
-              value: (v) => v.provider.location,
-              filter: true,
-              cell: (v) => v.provider.location,
-              edit: { type: "combo", options: dash.locations, get: (v) => v.provider.location, set: (v, x) => actions.update("providers", v.provider.uid, { location: x }) },
-            },
+            { header: "Name", value: (v) => v.provider.name, cell: (v) => <ProviderLink id={v.provider.id}>{v.name}</ProviderLink> },
+            { header: "Credential", value: (v) => v.provider.credential, filter: true, cell: (v) => v.provider.credential },
+            { header: "Specialty", value: (v) => v.provider.specialty, filter: true, cell: (v) => v.provider.specialty },
+            { header: "Location", value: (v) => v.provider.location, filter: true, cell: (v) => v.provider.location },
             {
               header: "Status",
               value: (v) => v.provider.status,
               filter: true,
               cell: (v) => <Chip tone={v.provider.status === "Ready" ? "good" : "warn"}>{v.provider.status}</Chip>,
-              edit: {
+              quick: {
                 type: "select",
                 options: [...PROVIDER_STATUSES],
                 get: (v) => v.provider.status,
-                set: (v, x) => actions.update("providers", v.provider.uid, { status: x as (typeof PROVIDER_STATUSES)[number] }),
+                set: (v, x) => actions.update("providers", v.provider.uid, { status: x as (typeof PROVIDER_STATUSES)[number] }, `${v.name} is now ${x}.`),
               },
             },
           ]}
@@ -204,7 +180,6 @@ export function CredentialingView() {
             </label>
           )}
         </div>
-        {canEdit && <EditHint />}
         {view === "board" ? (
           <Board />
         ) : (
@@ -228,40 +203,37 @@ export function CredentialingView() {
             <DataTable
               caption="Credentialing steps"
               empty="No credentialing steps in progress for this selection."
-              minWidth={820}
+              minWidth={900}
               rows={rows}
               rowKey={(l) => l.uid}
-              editing={canEdit}
               rowLabel={(l) => `${l.name}, step ${l.step}`}
-              onDelete={(l) => actions.remove("credentialing", l.uid)}
+              actions={{
+                providerId: (l) => l.providerId,
+                edit: {
+                  fields: [
+                    { key: "started", label: "Started", type: "date", required: true },
+                    { key: "finished", label: "Finished (leave empty if in progress)", type: "date" },
+                    { key: "waitingOn", label: "Waiting on", type: "text" },
+                    { key: "turn", label: "Waiting on the provider?", type: "select", options: YES_NO },
+                  ],
+                  values: (l) => ({ started: l.started, finished: l.completed ?? "", waitingOn: l.waitingOn, turn: l.waitingOnProvider ? "yes" : "no" }),
+                  submit: (l, x) => actions.update("credentialing", l.uid, { startedDate: x.started, completedDate: x.finished || null, waitingOn: x.waitingOn.trim(), waitingOnProvider: x.turn === "yes" }, "Step updated."),
+                },
+                remove: (l) => actions.remove("credentialing", l.uid),
+              }}
               columns={[
                 { header: "Provider", value: (l) => l.name, cell: (l) => <ProviderLink id={l.providerId}>{l.name}</ProviderLink> },
                 { header: "Location", value: (l) => l.location, filter: true, cell: (l) => l.location },
                 { header: "Step", value: (l) => `${l.step}. ${l.stepLabel}`, filter: true, cell: (l) => `${l.step}. ${l.stepLabel}` },
-                {
-                  header: "Started",
-                  value: (l) => l.started,
-                  cell: (l) => formatDate(l.started, dash.today),
-                  edit: { type: "date", get: (l) => l.started, set: (l, x) => actions.update("credentialing", l.uid, { startedDate: x }) },
-                },
-                {
-                  header: "Finished",
-                  value: (l) => l.completed,
-                  cell: (l) => (l.completed ? formatDate(l.completed, dash.today) : <Chip tone="warn">In progress</Chip>),
-                  edit: { type: "date", clearable: true, get: (l) => l.completed ?? "", set: (l, x) => actions.update("credentialing", l.uid, { completedDate: x || null }) },
-                },
+                { header: "Started", value: (l) => l.started, cell: (l) => formatDate(l.started, dash.today) },
+                { header: "Finished", value: (l) => l.completed, cell: (l) => (l.completed ? formatDate(l.completed, dash.today) : <Chip tone="warn">In progress</Chip>) },
                 { header: "Days in step", align: "right", value: (l) => l.days, cell: (l) => <Mono className="text-ink">{l.days}</Mono> },
-                {
-                  header: "Waiting on",
-                  value: (l) => l.waitingOn,
-                  cell: (l) => (l.waitingOn ? `${l.waitingOnProvider ? "Provider: " : ""}${l.waitingOn}` : <span className="text-muted">–</span>),
-                  edit: { type: "text", clearable: true, get: (l) => l.waitingOn, set: (l, x) => actions.update("credentialing", l.uid, { waitingOn: x }) },
-                },
+                { header: "Waiting on", value: (l) => l.waitingOn, cell: (l) => (l.waitingOn ? `${l.waitingOnProvider ? "Provider: " : ""}${l.waitingOn}` : <span className="text-muted">–</span>) },
                 {
                   header: "Provider's turn?",
                   value: (l) => (l.waitingOnProvider ? "yes" : "no"),
                   cell: (l) => (l.waitingOnProvider ? <Chip tone="warn">Yes</Chip> : <span className="text-muted">No</span>),
-                  edit: { type: "select", options: YES_NO, get: (l) => (l.waitingOnProvider ? "yes" : "no"), set: (l, x) => actions.update("credentialing", l.uid, { waitingOnProvider: x === "yes" }) },
+                  quick: { type: "select", options: YES_NO, get: (l) => (l.waitingOnProvider ? "yes" : "no"), set: (l, x) => actions.update("credentialing", l.uid, { waitingOnProvider: x === "yes" }) },
                 },
               ]}
             />
@@ -285,21 +257,18 @@ export function ExpirationsView() {
       <PageHeader title="Licences & expirations" crumb="Licences & expirations" />
       <Card title="Licences, DEA, board certifications, malpractice, BLS/ACLS" headingId="exp-table-heading" aside={`${rows.length} ${rows.length === 1 ? "item" : "items"}`}>
         {canEdit && (
-          <>
-            <EditHint />
-            <div className="mb-4">
-              <AddForm
-                buttonLabel="Add expiration"
-                title="Add expiration"
-                fields={[
-                  { key: "provider", label: "Provider", type: "select", options, required: true },
-                  { key: "item", label: "Item", type: "combo", options: EXPIRY_ITEMS, required: true, initial: "Licence" },
-                  { key: "date", label: "Expires", type: "date", required: true },
-                ]}
-                onSubmit={(v) => actions.add("expirations", { providerId: idOf(v.provider), item: v.item.trim(), expiryDate: v.date })}
-              />
-            </div>
-          </>
+          <div className="mb-4">
+            <AddForm
+              buttonLabel="Add expiration"
+              title="Add expiration"
+              fields={[
+                { key: "provider", label: "Provider", type: "select", options, required: true },
+                { key: "item", label: "Item", type: "combo", options: EXPIRY_ITEMS, required: true, initial: "Licence" },
+                { key: "date", label: "Expires", type: "date", required: true },
+              ]}
+              onSubmit={(v) => actions.add("expirations", { providerId: idOf(v.provider), item: v.item.trim(), expiryDate: v.date })}
+            />
+          </div>
         )}
         <label className="mb-3 flex w-fit flex-col gap-1 text-xs font-medium text-muted">
           Show
@@ -315,9 +284,19 @@ export function ExpirationsView() {
           empty="Nothing expires in this window."
           rows={rows}
           rowKey={(e) => e.uid}
-          editing={canEdit}
           rowLabel={(e) => `${e.name} ${e.item}`}
-          onDelete={(e) => actions.remove("expirations", e.uid)}
+          actions={{
+            providerId: (e) => e.providerId,
+            edit: {
+              fields: [
+                { key: "item", label: "Item", type: "combo", options: EXPIRY_ITEMS, required: true },
+                { key: "date", label: "Expires", type: "date", required: true },
+              ],
+              values: (e) => ({ item: e.item, date: e.date }),
+              submit: (e, x) => actions.update("expirations", e.uid, { item: x.item.trim(), expiryDate: x.date }, "Expiration updated."),
+            },
+            remove: (e) => actions.remove("expirations", e.uid),
+          }}
           columns={[
             { header: "Provider", value: (e) => e.name, cell: (e) => <ProviderLink id={e.providerId}>{e.name}</ProviderLink> },
             { header: "Location", value: (e) => e.location, filter: true, cell: (e) => e.location },
@@ -326,13 +305,11 @@ export function ExpirationsView() {
               value: (e) => e.item,
               filter: true,
               cell: (e) => e.item,
-              edit: { type: "combo", options: EXPIRY_ITEMS, get: (e) => e.item, set: (e, x) => actions.update("expirations", e.uid, { item: x }) },
             },
             {
               header: "Expires",
               value: (e) => e.date,
               cell: (e) => formatDate(e.date, dash.today),
-              edit: { type: "date", get: (e) => e.date, set: (e, x) => actions.update("expirations", e.uid, { expiryDate: x }) },
             },
             {
               header: "Time left",
@@ -354,7 +331,7 @@ export function ExpirationsView() {
 
 export function PayerEnrollmentView() {
   const { dash } = useDashboard();
-  const { canEdit } = useUi();
+  const { openProvider } = useUi();
   const actions = useActions();
   const payer = dash.stepAverages[2];
   const rows = dash.inProgress.filter((v) => v.currentStep === 3);
@@ -370,8 +347,18 @@ export function PayerEnrollmentView() {
           empty="Nobody is at the payer enrollment step for this selection."
           rows={rows}
           rowKey={(v) => v.provider.uid}
-          editing={canEdit}
           rowLabel={(v) => v.name}
+          actions={{
+            details: (v) => openProvider(v.provider.id),
+            edit: {
+              fields: [
+                { key: "waitingOn", label: "Waiting on", type: "text" },
+                { key: "turn", label: "Waiting on the provider?", type: "select", options: YES_NO },
+              ],
+              values: (v) => ({ waitingOn: v.currentRow?.waitingOn ?? "", turn: v.currentRow?.waitingOnProvider ? "yes" : "no" }),
+              submit: (v, x) => v.currentRow && actions.update("credentialing", v.currentRow.uid, { waitingOn: x.waitingOn.trim(), waitingOnProvider: x.turn === "yes" }, "Payer step updated."),
+            },
+          }}
           columns={[
             { header: "Provider", value: (v) => v.name, cell: (v) => <ProviderLink id={v.provider.id}>{v.name}</ProviderLink> },
             { header: "Location", value: (v) => v.provider.location, filter: true, cell: (v) => v.provider.location },
@@ -382,12 +369,6 @@ export function PayerEnrollmentView() {
               header: "Waiting on",
               value: (v) => v.currentRow?.waitingOn ?? "",
               cell: (v) => (v.currentRow?.waitingOn ? `${v.currentRow.waitingOnProvider ? "Provider: " : ""}${v.currentRow.waitingOn}` : <span className="text-muted">–</span>),
-              edit: {
-                type: "text",
-                clearable: true,
-                get: (v) => v.currentRow?.waitingOn ?? "",
-                set: (v, x) => v.currentRow && actions.update("credentialing", v.currentRow.uid, { waitingOn: x }),
-              },
             },
           ]}
         />
@@ -400,58 +381,53 @@ export function RecruitingView() {
   const { dash } = useDashboard();
   const { canEdit } = useUi();
   const actions = useActions();
-  const setStage = (r: Role, i: number, v: string) => {
-    const stages = [...r.stages] as Role["stages"];
-    stages[i] = toInt(v);
-    actions.update("roles", r.uid, { stages });
-  };
+  const stageFields: FormField[] = PIPELINE_STAGES.map((st) => ({ key: st, label: `${st} (candidates)`, type: "number", initial: "0" }));
+  const baseFields: FormField[] = [
+    { key: "title", label: "Title", type: "text", required: true },
+    { key: "location", label: "Location", type: "combo", options: dash.locations, required: true },
+    { key: "specialty", label: "Specialty (optional)", type: "combo", options: dash.specialties },
+    { key: "opened", label: "Opened", type: "date", required: true, initial: dash.today },
+  ];
+  const stagesOf = (v: Record<string, string>) => PIPELINE_STAGES.map((st) => toInt(v[st])) as Role["stages"];
   return (
     <>
       <PageHeader title="Recruiting" crumb="Recruiting" />
       <Card title="Open roles" headingId="roles-heading" aside={`${dash.roles.length} ${dash.roles.length === 1 ? "role" : "roles"}`}>
         {canEdit && (
-          <>
-            <EditHint />
-            <div className="mb-4">
-              <AddForm
-                buttonLabel="Add open role"
-                title="Add open role"
-                fields={[
-                  { key: "title", label: "Title", type: "text", required: true },
-                  { key: "location", label: "Location", type: "combo", options: dash.locations, required: true },
-                  { key: "specialty", label: "Specialty (optional)", type: "combo", options: dash.specialties },
-                  { key: "opened", label: "Opened", type: "date", required: true, initial: dash.today },
-                ]}
-                onSubmit={(v) =>
-                  actions.add("roles", { title: v.title.trim(), location: v.location.trim(), specialty: v.specialty.trim(), openedDate: v.opened, stages: [0, 0, 0, 0, 0] })
-                }
-              />
-            </div>
-          </>
+          <div className="mb-4">
+            <AddForm
+              buttonLabel="Add open role"
+              title="Add open role"
+              fields={[...baseFields, ...stageFields]}
+              onSubmit={(v) => actions.add("roles", { title: v.title.trim(), location: v.location.trim(), specialty: v.specialty.trim(), openedDate: v.opened, stages: stagesOf(v) })}
+            />
+          </div>
         )}
         <DataTable
           caption="Open roles and candidates at each stage"
           empty="No open roles for this selection."
-          minWidth={960}
+          minWidth={1000}
           rows={dash.roles}
           rowKey={(r) => r.role.uid}
-          editing={canEdit}
           rowLabel={(r) => r.role.title}
-          onDelete={(r) => actions.remove("roles", r.role.uid)}
+          actions={{
+            edit: {
+              fields: [...baseFields, ...stageFields],
+              values: (r) => ({
+                title: r.role.title,
+                location: r.role.location,
+                specialty: r.role.specialty,
+                opened: r.role.openedDate,
+                ...Object.fromEntries(PIPELINE_STAGES.map((st, i) => [st, String(r.role.stages[i])])),
+              }),
+              submit: (r, v) =>
+                actions.update("roles", r.role.uid, { title: v.title.trim(), location: v.location.trim(), specialty: v.specialty.trim(), openedDate: v.opened, stages: stagesOf(v) }, "Role updated."),
+            },
+            remove: (r) => actions.remove("roles", r.role.uid),
+          }}
           columns={[
-            {
-              header: "Role",
-              value: (r) => r.role.title,
-              cell: (r) => <span className="font-semibold text-ink">{r.role.title}</span>,
-              edit: { type: "text", get: (r) => r.role.title, set: (r, x) => actions.update("roles", r.role.uid, { title: x }) },
-            },
-            {
-              header: "Location",
-              value: (r) => r.role.location,
-              filter: true,
-              cell: (r) => r.role.location,
-              edit: { type: "combo", options: dash.locations, get: (r) => r.role.location, set: (r, x) => actions.update("roles", r.role.uid, { location: x }) },
-            },
+            { header: "Role", value: (r) => r.role.title, cell: (r) => <span className="font-semibold text-ink">{r.role.title}</span> },
+            { header: "Location", value: (r) => r.role.location, filter: true, cell: (r) => r.role.location },
             {
               header: "Open",
               align: "right",
@@ -462,18 +438,12 @@ export function RecruitingView() {
                   {r.stalled && <div className="text-xs font-semibold text-red">stalled</div>}
                 </>
               ),
-              edit: { type: "date", get: (r) => r.role.openedDate, set: (r, x) => actions.update("roles", r.role.uid, { openedDate: x }) },
             },
             ...PIPELINE_STAGES.map((stage, i) => ({
               header: stage,
               align: "right" as const,
               value: (r: (typeof dash.roles)[number]) => r.role.stages[i],
               cell: (r: (typeof dash.roles)[number]) => <Mono className="text-ink">{r.role.stages[i]}</Mono>,
-              edit: {
-                type: "number" as const,
-                get: (r: (typeof dash.roles)[number]) => String(r.role.stages[i]),
-                set: (r: (typeof dash.roles)[number], x: string) => setStage(r.role, i, x),
-              },
             })),
             { header: "Total", align: "right", value: (r) => r.total, cell: (r) => <Mono className="text-ink">{r.total}</Mono> },
           ]}
@@ -493,34 +463,44 @@ export function OnboardingView() {
       <PageHeader title="Onboarding" crumb="Onboarding" />
       <Card title="Providers onboarding" headingId="onboarding-heading" aside={`${dash.onboarding.length} ${dash.onboarding.length === 1 ? "provider" : "providers"}`}>
         {canEdit && (
-          <>
-            <EditHint />
-            <div className="mb-4">
-              <AddForm
-                buttonLabel="Add onboarding"
-                title="Add onboarding"
-                fields={[
-                  { key: "provider", label: "Provider", type: "select", options, required: true },
-                  { key: "start", label: "Start date", type: "date", required: true, initial: dash.today },
-                  { key: "total", label: "Total steps", type: "number", required: true, initial: "8" },
-                  { key: "next", label: "Next step", type: "text" },
-                ]}
-                onSubmit={(v) =>
-                  actions.add("onboarding", { providerId: idOf(v.provider), startDate: v.start, stepsDone: 0, stepsTotal: Math.max(1, toInt(v.total)), nextStep: v.next.trim() })
-                }
-              />
-            </div>
-          </>
+          <div className="mb-4">
+            <AddForm
+              buttonLabel="Add onboarding"
+              title="Add onboarding"
+              fields={[
+                { key: "provider", label: "Provider", type: "select", options, required: true },
+                { key: "start", label: "Start date", type: "date", required: true, initial: dash.today },
+                { key: "total", label: "Total steps", type: "number", required: true, initial: "8" },
+                { key: "next", label: "Next step", type: "text" },
+              ]}
+              onSubmit={(v) => actions.add("onboarding", { providerId: idOf(v.provider), startDate: v.start, stepsDone: 0, stepsTotal: Math.max(1, toInt(v.total)), nextStep: v.next.trim() })}
+            />
+          </div>
         )}
         <DataTable
           caption="Onboarding progress"
           empty="Nobody is onboarding for this selection."
-          minWidth={820}
+          minWidth={900}
           rows={dash.onboarding}
           rowKey={(o) => o.row.uid}
-          editing={canEdit}
           rowLabel={(o) => o.name}
-          onDelete={(o) => actions.remove("onboarding", o.row.uid)}
+          actions={{
+            providerId: (o) => o.row.providerId,
+            edit: {
+              fields: [
+                { key: "start", label: "Start date", type: "date", required: true },
+                { key: "done", label: "Steps done", type: "number", required: true },
+                { key: "total", label: "Total steps", type: "number", required: true },
+                { key: "next", label: "Next step", type: "text" },
+              ],
+              values: (o) => ({ start: o.row.startDate, done: String(o.row.stepsDone), total: String(o.row.stepsTotal), next: o.row.nextStep }),
+              submit: (o, v) => {
+                const total = Math.max(1, toInt(v.total));
+                actions.update("onboarding", o.row.uid, { startDate: v.start, stepsTotal: total, stepsDone: Math.min(toInt(v.done), total), nextStep: v.next.trim() }, "Onboarding updated.");
+              },
+            },
+            remove: (o) => actions.remove("onboarding", o.row.uid),
+          }}
           columns={[
             { header: "Provider", value: (o) => o.name, cell: (o) => <ProviderLink id={o.row.providerId}>{o.name}</ProviderLink> },
             { header: "Location", value: (o) => o.location, filter: true, cell: (o) => o.location },
@@ -533,7 +513,6 @@ export function OnboardingView() {
                   <div className="text-xs text-muted">{o.daysToStart > 0 ? `in ${o.daysToStart} days` : o.daysToStart === 0 ? "today" : `${-o.daysToStart} days ago`}</div>
                 </>
               ),
-              edit: { type: "date", get: (o) => o.row.startDate, set: (o, x) => actions.update("onboarding", o.row.uid, { startDate: x }) },
             },
             {
               header: "Steps done",
@@ -549,30 +528,8 @@ export function OnboardingView() {
                   <ProgressBar pct={o.pct} label={`${o.name} onboarding progress`} />
                 </>
               ),
-              edit: {
-                type: "number",
-                get: (o) => String(o.row.stepsDone),
-                set: (o, x) => actions.update("onboarding", o.row.uid, { stepsDone: Math.min(toInt(x), o.row.stepsTotal) }),
-              },
             },
-            {
-              header: "Total steps",
-              align: "right",
-              value: (o) => o.row.stepsTotal,
-              cell: (o) => <Mono className="text-ink">{o.row.stepsTotal}</Mono>,
-              edit: {
-                type: "number",
-                min: 1,
-                get: (o) => String(o.row.stepsTotal),
-                set: (o, x) => actions.update("onboarding", o.row.uid, { stepsTotal: Math.max(1, toInt(x)), stepsDone: Math.min(o.row.stepsDone, Math.max(1, toInt(x))) }),
-              },
-            },
-            {
-              header: "Next step",
-              value: (o) => o.row.nextStep,
-              cell: (o) => o.row.nextStep || <span className="text-muted">–</span>,
-              edit: { type: "text", clearable: true, get: (o) => o.row.nextStep, set: (o, x) => actions.update("onboarding", o.row.uid, { nextStep: x }) },
-            },
+            { header: "Next step", value: (o) => o.row.nextStep, cell: (o) => o.row.nextStep || <span className="text-muted">–</span> },
           ]}
         />
       </Card>

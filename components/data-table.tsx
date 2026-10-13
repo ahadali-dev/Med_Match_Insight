@@ -1,7 +1,9 @@
 "use client";
 
 import { useId, useMemo, useState, type ReactNode } from "react";
-import { EditCell, type EditSpec } from "./edit-cells";
+import { useUi } from "./dashboard-provider";
+import { EditCell, FormDialog, type EditSpec, type FormField } from "./edit-cells";
+import { Modal } from "./modal";
 import { cx } from "./ui";
 
 export interface Column<T> {
@@ -13,11 +15,27 @@ export interface Column<T> {
   value?: (row: T) => string | number | null;
   /** Adds a dropdown listing this column's distinct values. */
   filter?: boolean;
-  /** Makes the cell an input while the table is in edit mode. */
-  edit?: EditSpec<T>;
+  /** A dropdown or input shown right in the row (demo workspace only), e.g. Status. */
+  quick?: EditSpec<T>;
+}
+
+export interface RowActions<T> {
+  /** Replaces the built-in details dialog (e.g. open the provider profile instead). */
+  details?: (row: T) => void;
+  /** Fields for the Edit dialog; omit to hide the Edit button. */
+  edit?: {
+    fields: FormField[];
+    values: (row: T) => Record<string, string>;
+    submit: (row: T, values: Record<string, string>) => void;
+  };
+  /** Omit to hide the Delete button. */
+  remove?: (row: T) => void;
+  /** When set, the built-in details dialog offers to open this provider's profile. */
+  providerId?: (row: T) => string | undefined;
 }
 
 const FIELD = "min-h-10 rounded-md border border-[#c3cec9] bg-white px-2.5 py-1.5 text-sm text-ink";
+const ACTION = "min-h-9 rounded-md border border-[#c3cec9] bg-white px-2.5 text-xs font-semibold text-ink hover:bg-page";
 const BTN =
   "min-h-10 min-w-10 rounded-md border border-[#c3cec9] bg-white px-3 text-sm font-semibold text-ink hover:bg-page disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -42,8 +60,7 @@ export function DataTable<T>({
   minWidth = 560,
   controls = true,
   pageSizes = [10, 25, 50],
-  editing = false,
-  onDelete,
+  actions,
   rowLabel,
   exportName,
 }: {
@@ -55,16 +72,18 @@ export function DataTable<T>({
   minWidth?: number;
   controls?: boolean;
   pageSizes?: number[];
-  /** Show inputs for columns that define `edit`. */
-  editing?: boolean;
-  /** Adds a Delete button per row while editing. */
-  onDelete?: (row: T) => void;
+  /** Adds an Actions column: Details always, Edit and Delete in the demo workspace. */
+  actions?: RowActions<T>;
   /** Names a row for screen readers ("Delete Dr. Singh"). */
   rowLabel?: (row: T) => string;
   /** Base file name for the CSV export button. */
   exportName?: string;
 }) {
   const uid = useId();
+  const { canEdit, openProvider } = useUi();
+  const [editRow, setEditRow] = useState<T | null>(null);
+  const [detailRow, setDetailRow] = useState<T | null>(null);
+  const showActions = Boolean(controls && actions);
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<Record<number, string>>({});
   const [sort, setSort] = useState<{ col: number; dir: "asc" | "desc" } | null>(null);
@@ -219,7 +238,7 @@ export function DataTable<T>({
                     </th>
                   );
                 })}
-                {editing && onDelete && (
+                {showActions && (
                   <th scope="col" className="px-2 py-2 text-right font-semibold">
                     Actions
                   </th>
@@ -231,31 +250,38 @@ export function DataTable<T>({
                 <tr key={rowKey(row, ri)} className="border-t border-line-soft align-top">
                   {columns.map((c, i) => (
                     <td key={c.header} className={cx("py-2.5 text-body", i === 0 ? "pr-2" : "px-2", c.align === "right" && "text-right", c.className)}>
-                      {editing && c.edit ? (
+                      {canEdit && c.quick ? (
                         <EditCell
-                          type={c.edit.type}
-                          value={c.edit.get(row)}
-                          options={c.edit.options}
-                          min={c.edit.min}
-                          clearable={c.edit.clearable}
+                          type={c.quick.type}
+                          value={c.quick.get(row)}
+                          options={c.quick.options}
+                          min={c.quick.min}
+                          clearable={c.quick.clearable}
                           label={`${c.header}${rowLabel ? ` for ${rowLabel(row)}` : ""}`}
-                          onCommit={(v) => c.edit?.set(row, v)}
+                          onCommit={(v) => c.quick?.set(row, v)}
                         />
                       ) : (
                         c.cell(row)
                       )}
                     </td>
                   ))}
-                  {editing && onDelete && (
+                  {showActions && actions && (
                     <td className="px-2 py-2.5 text-right">
-                      <button
-                        type="button"
-                        onClick={() => onDelete(row)}
-                        aria-label={`Delete ${rowLabel ? rowLabel(row) : "row"}`}
-                        className="min-h-10 rounded-md border border-[#e4b4ae] bg-white px-3 text-sm font-semibold text-red hover:bg-red-bg"
-                      >
-                        Delete
-                      </button>
+                      <div className="flex justify-end gap-1.5">
+                        <button type="button" className={ACTION} aria-label={`Details for ${rowLabel ? rowLabel(row) : "row"}`} onClick={() => (actions.details ? actions.details(row) : setDetailRow(row))}>
+                          Details
+                        </button>
+                        {canEdit && actions.edit && (
+                          <button type="button" className={ACTION} aria-label={`Edit ${rowLabel ? rowLabel(row) : "row"}`} onClick={() => setEditRow(row)}>
+                            Edit
+                          </button>
+                        )}
+                        {canEdit && actions.remove && (
+                          <button type="button" className={cx(ACTION, "border-[#e4b4ae] text-red hover:bg-red-bg")} aria-label={`Delete ${rowLabel ? rowLabel(row) : "row"}`} onClick={() => actions.remove?.(row)}>
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -302,6 +328,41 @@ export function DataTable<T>({
             </nav>
           </div>
         </div>
+      )}
+
+      {editRow && actions?.edit && (
+        <FormDialog
+          title={`Edit ${rowLabel ? rowLabel(editRow) : "row"}`}
+          fields={actions.edit.fields}
+          initial={actions.edit.values(editRow)}
+          onSubmit={(v) => actions.edit?.submit(editRow, v)}
+          onClose={() => setEditRow(null)}
+        />
+      )}
+      {detailRow && (
+        <Modal title={rowLabel ? rowLabel(detailRow) : "Details"} onClose={() => setDetailRow(null)}>
+          <dl className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
+            {columns.map((c) => (
+              <div key={c.header} className="min-w-0">
+                <dt className="text-xs font-medium text-muted">{c.header}</dt>
+                <dd className="mt-0.5 text-sm text-ink">{c.cell(detailRow)}</dd>
+              </div>
+            ))}
+          </dl>
+          {actions?.providerId?.(detailRow) && (
+            <button
+              type="button"
+              className="mt-5 min-h-10 rounded-md bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-dark"
+              onClick={() => {
+                const id = actions.providerId?.(detailRow);
+                setDetailRow(null);
+                if (id) openProvider(id);
+              }}
+            >
+              Open provider profile
+            </button>
+          )}
+        </Modal>
       )}
     </div>
   );

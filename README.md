@@ -4,7 +4,7 @@ Healthcare workforce dashboards for credentialing, licence expirations, recruiti
 
 Each client has two data sources, switched in the sidebar (or Settings):
 
-- **Demo data (default).** A fully editable workspace: edit any cell, add and delete rows, complete credentialing steps, change the target days. Everything updates instantly and is saved **in your browser only**, so it is safe to show to anyone. Needs no setup.
+- **Demo data (default).** A fully editable workspace: every table row has Details, Edit and Delete buttons, status and similar fields are dropdowns right in the row, and you can add rows, complete credentialing steps and change the target days. Everything updates instantly and is saved **in your browser only**, so it is safe to show to anyone. Needs no setup.
 - **Google Sheet (live).** The app reads the client's sheet directly through the Google Sheets API (no CSV export, no import step), read-only. Needs the setup below.
 
 Also included: global provider search (press `/`), provider profile drawer, credentialing board, notifications panel, search / filter / sort / pagination / CSV export on every table, undo for edits, and a Settings page.

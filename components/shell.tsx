@@ -481,24 +481,31 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
 
         <div className={cx("px-1.5", collapsed && "lg:hidden")}>
-          <label htmlFor="client-switcher" className="flex flex-col gap-1.5 text-xs text-sidebar-muted">
-            Client
-            <select
-              id="client-switcher"
-              value={client.id}
-              onChange={(e) => {
-                setOpen(false);
-                router.push(`/${e.target.value}${subPath}`);
-              }}
-              className="min-h-11 rounded-md border border-sidebar-line bg-sidebar-raised px-2.5 py-2 text-sm text-white"
-            >
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          {clients.length > 1 ? (
+            <label htmlFor="client-switcher" className="flex flex-col gap-1.5 text-xs text-sidebar-muted">
+              Client
+              <select
+                id="client-switcher"
+                value={client.id}
+                onChange={(e) => {
+                  setOpen(false);
+                  router.push(`/${e.target.value}${subPath}`);
+                }}
+                className="min-h-11 rounded-md border border-sidebar-line bg-sidebar-raised px-2.5 py-2 text-sm text-white"
+              >
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <div className="flex flex-col gap-1.5 text-xs text-sidebar-muted">
+              Client
+              <div className="flex min-h-11 items-center rounded-md border border-sidebar-line bg-sidebar-raised px-3 text-sm font-medium text-white">{client.name}</div>
+            </div>
+          )}
         </div>
 
         <nav aria-label="Main">

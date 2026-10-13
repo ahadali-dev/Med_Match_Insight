@@ -1,6 +1,6 @@
 "use client";
 
-import { useDashboard, useSync, useUi } from "./dashboard-provider";
+import { useDashboard, useSync } from "./dashboard-provider";
 import { SyncStatus } from "./shell";
 import { SampleBadge, cx } from "./ui";
 
@@ -9,7 +9,6 @@ const SELECT =
 
 export function PageHeader({ title, crumb }: { title: string; crumb: string }) {
   const { dash, filters, setFilters, showSampleBadge, mode } = useDashboard();
-  const { editMode, setEditMode } = useUi();
   const sync = useSync();
 
   return (
@@ -55,23 +54,7 @@ export function PageHeader({ title, crumb }: { title: string; crumb: string }) {
             ))}
           </select>
         </label>
-        {mode === "demo" ? (
-          <button
-            type="button"
-            role="switch"
-            aria-checked={editMode}
-            onClick={() => setEditMode(!editMode)}
-            className={cx(
-              "flex min-h-11 items-center gap-2 rounded-md border px-4 text-sm font-semibold",
-              editMode ? "border-accent bg-accent text-white hover:bg-accent-dark" : "border-[#c3cec9] bg-white text-ink hover:bg-page",
-            )}
-          >
-            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
-            </svg>
-            {editMode ? "Editing on" : "Edit data"}
-          </button>
-        ) : (
+        {mode === "live" && (
           <button
             type="button"
             onClick={sync.refreshNow}

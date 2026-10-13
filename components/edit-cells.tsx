@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { Modal } from "./modal";
 import { cx } from "./ui";
 
 export type EditType = "text" | "number" | "date" | "select" | "combo";
@@ -117,7 +118,91 @@ export interface FormField {
   initial?: string;
 }
 
-/** A small collapsible "add a row" form. */
+/** A dialog form used for both "Add" and "Edit". Mount it only while it should be open. */
+export function FormDialog({
+  title,
+  fields,
+  initial,
+  submitLabel = "Save",
+  onSubmit,
+  onClose,
+}: {
+  title: string;
+  fields: FormField[];
+  /** Starting values by field key (for editing). Falls back to each field's `initial`. */
+  initial?: Record<string, string>;
+  submitLabel?: string;
+  onSubmit: (values: Record<string, string>) => void;
+  onClose: () => void;
+}) {
+  const uid = useId();
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(fields.map((f) => [f.key, initial?.[f.key] ?? f.initial ?? (f.type === "select" ? (f.options?.[0] ?? "") : "")])),
+  );
+  const set = (key: string, v: string) => setValues((cur) => ({ ...cur, [key]: v }));
+
+  return (
+    <Modal title={title} onClose={onClose}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit(values);
+          onClose();
+        }}
+        className="grid gap-3 sm:grid-cols-2"
+      >
+        {fields.map((f) => (
+          <label key={f.key} className="flex flex-col gap-1 text-xs font-medium text-muted">
+            <span>
+              {f.label}
+              {f.required && <span aria-hidden="true"> *</span>}
+              {f.required && <span className="sr-only"> (required)</span>}
+            </span>
+            {f.type === "select" ? (
+              <select className={INPUT} required={f.required} value={values[f.key]} onChange={(e) => set(f.key, e.target.value)}>
+                {!f.options?.includes(values[f.key]) && <option value={values[f.key]}>{values[f.key] || "–"}</option>}
+                {f.options?.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <>
+                <input
+                  className={INPUT}
+                  required={f.required}
+                  type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
+                  min={f.type === "number" ? 0 : undefined}
+                  list={f.type === "combo" ? `${uid}-${f.key}` : undefined}
+                  value={values[f.key]}
+                  onChange={(e) => set(f.key, e.target.value)}
+                />
+                {f.type === "combo" && (
+                  <datalist id={`${uid}-${f.key}`}>
+                    {f.options?.map((o) => (
+                      <option key={o} value={o} />
+                    ))}
+                  </datalist>
+                )}
+              </>
+            )}
+          </label>
+        ))}
+        <div className="flex gap-2 pt-1 sm:col-span-2">
+          <button type="submit" className="min-h-10 rounded-md bg-accent px-5 text-sm font-semibold text-white hover:bg-accent-dark">
+            {submitLabel}
+          </button>
+          <button type="button" onClick={onClose} className="min-h-10 rounded-md border border-[#c3cec9] bg-white px-4 text-sm font-semibold text-ink hover:bg-page">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/** "+ Add ..." button that opens the form dialog. */
 export function AddForm({
   buttonLabel,
   title,
@@ -130,89 +215,17 @@ export function AddForm({
   onSubmit: (values: Record<string, string>) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const panelId = useId();
-  const blank = () => Object.fromEntries(fields.map((f) => [f.key, f.initial ?? (f.type === "select" ? (f.options?.[0] ?? "") : "")]));
-  const [values, setValues] = useState<Record<string, string>>(blank);
-  const [seq, setSeq] = useState(0);
-
   return (
-    <div className="flex flex-col gap-3">
+    <>
       <button
         type="button"
-        aria-expanded={open}
-        aria-controls={panelId}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen(true)}
         className="flex min-h-10 w-fit items-center gap-2 rounded-md bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-dark"
       >
-        <span aria-hidden="true">{open ? "−" : "+"}</span>
+        <span aria-hidden="true">+</span>
         {buttonLabel}
       </button>
-      {open && (
-        <form
-          id={panelId}
-          aria-label={title}
-          onSubmit={(e) => {
-            e.preventDefault();
-            onSubmit(values);
-            setValues(blank());
-            setSeq((n) => n + 1);
-            setOpen(false);
-          }}
-          className="grid gap-3 rounded-xl border border-line bg-page p-4 sm:grid-cols-2 lg:grid-cols-3"
-        >
-          {fields.map((f) => (
-            <label key={`${seq}-${f.key}`} className="flex flex-col gap-1 text-xs font-medium text-muted">
-              {f.label}
-              {f.required && <span className="sr-only"> (required)</span>}
-              {f.type === "select" ? (
-                <select
-                  className={INPUT}
-                  required={f.required}
-                  value={values[f.key]}
-                  onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
-                >
-                  {f.options?.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <>
-                  <input
-                    className={INPUT}
-                    required={f.required}
-                    type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
-                    min={f.type === "number" ? 0 : undefined}
-                    list={f.type === "combo" ? `${panelId}-${f.key}` : undefined}
-                    value={values[f.key]}
-                    onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
-                  />
-                  {f.type === "combo" && (
-                    <datalist id={`${panelId}-${f.key}`}>
-                      {f.options?.map((o) => (
-                        <option key={o} value={o} />
-                      ))}
-                    </datalist>
-                  )}
-                </>
-              )}
-            </label>
-          ))}
-          <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-3">
-            <button type="submit" className="min-h-10 rounded-md bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-dark">
-              Save
-            </button>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="min-h-10 rounded-md border border-[#c3cec9] bg-white px-4 text-sm font-semibold text-ink hover:bg-page"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      )}
-    </div>
+      {open && <FormDialog title={title} fields={fields} submitLabel="Add" onSubmit={onSubmit} onClose={() => setOpen(false)} />}
+    </>
   );
 }

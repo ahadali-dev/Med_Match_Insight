@@ -70,9 +70,7 @@ export interface Toast {
 }
 
 interface UiContextValue {
-  editMode: boolean;
-  setEditMode: (v: boolean) => void;
-  /** Demo workspace with Edit mode switched on. */
+  /** True in the demo workspace, where rows can be edited, added and deleted. */
   canEdit: boolean;
   openProviderId: string | null;
   openProvider: (id: string | null) => void;
@@ -157,7 +155,6 @@ export function DashboardProvider({
 
   // ---- UI state
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
-  const [editMode, setEditMode] = useState(false);
   const [openProviderId, openProvider] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastId = useRef(0);
@@ -286,10 +283,10 @@ export function DashboardProvider({
     () => ({ ageMin, error, busy, refreshNow, announcement }),
     [ageMin, error, busy, refreshNow, announcement],
   );
-  const canEdit = mode === "demo" && editMode;
+  const canEdit = mode === "demo";
   const ui = useMemo<UiContextValue>(
-    () => ({ editMode, setEditMode, canEdit, openProviderId, openProvider, toasts, dismissToast }),
-    [editMode, canEdit, openProviderId, toasts, dismissToast],
+    () => ({ canEdit, openProviderId, openProvider, toasts, dismissToast }),
+    [canEdit, openProviderId, toasts, dismissToast],
   );
 
   return (
