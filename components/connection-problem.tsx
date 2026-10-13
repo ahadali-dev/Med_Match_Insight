@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { SheetErrorCode } from "@/lib/errors";
 
 const HELP: Record<SheetErrorCode, string[]> = {
@@ -32,6 +33,7 @@ export function ConnectionProblem({
   /** When set, offers a way back to the demo workspace. */
   clientId?: string;
 }) {
+  const router = useRouter();
   return (
     <main id="main" className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-5 px-4 py-10">
       <div className="flex items-center gap-2.5">
@@ -66,6 +68,18 @@ export function ConnectionProblem({
             className="ml-2 mt-5 min-h-11 rounded-md border border-[#c3cec9] bg-white px-5 text-sm font-semibold text-ink hover:bg-page"
           >
             Use the demo workspace instead
+          </button>
+        )}
+        {clientId && (
+          <button
+            type="button"
+            onClick={() => {
+              document.cookie = `mm-source-${clientId}=demo; path=/; max-age=31536000; SameSite=Lax`;
+              router.push(`/${clientId}/settings`);
+            }}
+            className="ml-2 mt-5 min-h-11 rounded-md border border-[#c3cec9] bg-white px-5 text-sm font-semibold text-ink hover:bg-page"
+          >
+            Open admin tools
           </button>
         )}
       </div>

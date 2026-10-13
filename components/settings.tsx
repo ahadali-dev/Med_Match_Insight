@@ -3,10 +3,11 @@
 import { useActions, useDashboard } from "./dashboard-provider";
 import { EditCell } from "./edit-cells";
 import { PageHeader } from "./page-header";
-import { Card, Chip, cx } from "./ui";
+import { AdminTools } from "./admin-tools";
+import { Card, cx } from "./ui";
 
 export function SettingsView() {
-  const { data, mode, liveAvailable, liveHint, client } = useDashboard();
+  const { data, mode, liveAvailable, liveHint } = useDashboard();
   const actions = useActions();
   const seg = (active: boolean) =>
     cx("min-h-11 flex-1 rounded-md px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50", active ? "bg-accent text-white" : "text-body hover:bg-white");
@@ -71,19 +72,7 @@ export function SettingsView() {
           </div>
         </Card>
 
-        <Card title="Connect a Google Sheet" headingId="connect-heading" className="lg:col-span-2">
-          <ol className="list-decimal space-y-1.5 pl-5 text-sm text-body">
-            <li>Create a service account in Google Cloud, enable the Sheets API, and download its JSON key.</li>
-            <li>
-              Set <code className="rounded bg-page px-1">GOOGLE_SERVICE_ACCOUNT_EMAIL</code> and <code className="rounded bg-page px-1">GOOGLE_PRIVATE_KEY</code> in your environment variables.
-            </li>
-            <li>Share the client&apos;s sheet with that email as Viewer.</li>
-            <li>
-              Add the sheet ID to <code className="rounded bg-page px-1">CLIENTS</code>, then switch this workspace to <Chip>Google Sheet</Chip>.
-            </li>
-          </ol>
-          <p className="mt-3 text-xs text-muted">Client: {client.name}. Full steps and the sheet layout are in the README.</p>
-        </Card>
+        <AdminTools />
       </div>
     </>
   );

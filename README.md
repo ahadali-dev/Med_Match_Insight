@@ -15,6 +15,8 @@ Also included: global provider search (press `/`), provider profile drawer, cred
 
 ## Connect a new client sheet (under 5 minutes)
 
+**Easiest way: use the built-in admin tools.** Set an `ADMIN_PASSCODE` environment variable (any long passcode) and redeploy. Then open **Settings → Admin tools**, enter the passcode, and follow the four steps: it shows the email to share the sheet with, checks the sheet and explains any problem in plain English (missing tab, wrong column, not shared), and gives you the exact `CLIENTS` line to paste into your environment variables. Nothing is stored by the tool and it can never change the sheet. The manual steps below are the same thing by hand.
+
 You only need to do **1** once per Google Cloud project; after that, every new client is steps 2 to 4.
 
 1. **One-time: create the service account**
