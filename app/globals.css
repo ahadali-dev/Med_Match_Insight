@@ -1,26 +1,97 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
+
+  /* Brand */
+  --color-sidebar: #0f3326;
+  --color-sidebar-raised: #164537;
+  --color-sidebar-line: #2d5a49;
+  --color-sidebar-active: #1e5644;
+  --color-sidebar-text: #c9ddd4;
+  --color-sidebar-muted: #a9c4b8;
+  --color-mint: #7fd1a8;
+  --color-accent: #1a6b4a;
+  --color-accent-dark: #0f4a32;
+
+  /* Surfaces and text (all text pairs checked for 4.5:1 or better) */
+  --color-page: #f4f6f5;
+  --color-card: #ffffff;
+  --color-line: #dce3e0;
+  --color-line-soft: #eaefed;
+  --color-track: #e5ece9;
+  --color-ink: #15201b;
+  --color-body: #33433c;
+  --color-muted: #4a5a53;
+
+  /* Status */
+  --color-amber: #9a5b00;
+  --color-amber-bg: #fff1db;
+  --color-amber-fg: #7a4600;
+  --color-red: #b42318;
+  --color-red-bg: #fdecea;
+  --color-red-fg: #8f1c13;
+  --color-info-bg: #e6f0ec;
+  --color-info-fg: #0f4a32;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--color-page);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-page);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* In the base layer so Tailwind utilities (text-white on sidebar links, etc.) can override it. */
+@layer base {
+  a {
+    color: var(--color-accent);
+  }
+  a:hover {
+    color: var(--color-accent-dark);
+  }
+}
+
+/*
+ * Dropdowns: draw our own chevron so it sits a comfortable distance from the edge in every browser.
+ * Unlayered on purpose, so it wins over Tailwind's padding utilities on individual selects.
+ */
+select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%234a5a53' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 16px;
+  padding-right: 2.5rem;
+  text-overflow: ellipsis;
+}
+.on-dark select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+
+:focus-visible {
+  outline: 3px solid #1a6b4a;
+  outline-offset: 2px;
+}
+.on-dark :focus-visible {
+  outline-color: #ffffff;
+}
+
+/* Recharts draws its own text: keep it on the page font. */
+.recharts-text,
+.recharts-wrapper {
+  font-family: var(--font-sans);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
